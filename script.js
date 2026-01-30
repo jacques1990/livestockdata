@@ -1,4 +1,4 @@
-const TD_KEY = "7eca87452f4849d99f5c30f227dbcdcc";
+const TD_KEY = "3cece2d4350c4c46b96ceef878f92606";
 
 // Start with “giants”. Replace with all 50 later if you want.
 const symbols = [

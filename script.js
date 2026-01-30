@@ -1,60 +1,50 @@
-const TD_KEY = "3cece2d4350c4c46b96ceef878f92606";
+const FINNHUB_KEY = "d5u3bahr01qtjet1s670d5u3bahr01qtjet1s67g";
 
-// Start with “giants”. Replace with all 50 later if you want.
-const symbols = [
-  "RELIANCE:NSE","HDFCBANK:NSE","ICICIBANK:NSE","TCS:NSE","INFY:NSE",
-  "SBIN:NSE","BHARTIARTL:NSE","LT:NSE","HINDUNILVR:NSE","BAJFINANCE:NSE"
+// US mega-cap + ETFs (safe for free plan)
+const TICKERS = [
+  "AAPL","MSFT","NVDA","AMZN","GOOGL","META",
+  "TSLA","BRK.B","JPM","V","MA",
+  "SPY","QQQ","DIA"
 ];
 
-async function fetchBatchQuotes(symbolList) {
-  const joined = symbolList.join(",");
-  const url = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(joined)}&apikey=${encodeURIComponent(TD_KEY)}`;
-
-  const r = await fetch(url);
-  const text = await r.text();
-  if (!r.ok) throw new Error(`HTTP ${r.status}: ${text}`);
-
-  const data = JSON.parse(text);
-  if (data && data.status === "error") throw new Error(`API: ${data.message || text}`);
-  return data;
+async function fetchQuote(ticker) {
+  const url = `https://finnhub.io/api/v1/quote?symbol=${ticker}&token=${FINNHUB_KEY}`;
+  const res = await fetch(url);
+  const txt = await res.text();
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${txt}`);
+  const j = JSON.parse(txt);
+  return { ticker, ...j };
 }
 
-function num(x) {
-  const n = Number(x);
-  return Number.isFinite(n) ? n : null;
-}
-function fmt(n) { return n === null ? "—" : n.toFixed(2); }
+function fmt(n){ return (typeof n === "number") ? n.toFixed(2) : "—"; }
 
-function rowHtml(sym, q) {
-  const price = num(q.close ?? q.price ?? q.last);
-  const change = num(q.change);
-  const pct = num(q.percent_change);
-  const cls = change > 0 ? "up" : change < 0 ? "down" : "";
-  const time = q.datetime || "—";
-
+function row(q){
+  const cls = q.d > 0 ? "up" : q.d < 0 ? "down" : "";
+  const t = q.t ? new Date(q.t*1000).toLocaleTimeString() : "—";
   return `
     <tr>
-      <td>${sym.split(":")[0]}</td>
-      <td>${fmt(price)}</td>
-      <td class="${cls}">${fmt(change)}</td>
-      <td class="${cls}">${pct === null ? "—" : pct.toFixed(2) + "%"}</td>
-      <td>${time}</td>
+      <td>${q.ticker}</td>
+      <td>${fmt(q.c)}</td>
+      <td class="${cls}">${fmt(q.d)}</td>
+      <td class="${cls}">${fmt(q.dp)}%</td>
+      <td>${t}</td>
     </tr>`;
 }
 
-async function load() {
+async function load(){
   const status = document.getElementById("status");
-  const tbody = document.getElementById("rows");
+  const body = document.getElementById("rows");
 
-  status.textContent = "Fetching quotes…";
   try {
-    const data = await fetchBatchQuotes(symbols);
-    tbody.innerHTML = symbols.map(sym => rowHtml(sym, data[sym] || {})).join("");
-    status.textContent = `Updated: ${new Date().toLocaleTimeString()}`;
-  } catch (e) {
-    status.textContent = `Error: ${e.message}`;
+    status.textContent = "Fetching data…";
+    const data = await Promise.all(TICKERS.map(fetchQuote));
+    data.sort((a,b)=>(b.dp||0)-(a.dp||0)); // top movers first
+    body.innerHTML = data.map(row).join("");
+    status.textContent = "Updated: " + new Date().toLocaleTimeString();
+  } catch(e){
+    status.textContent = "Error: " + e.message;
   }
 }
 
 load();
-setInterval(load, 60000);
+setInterval(load, 30000); // refresh every 30s

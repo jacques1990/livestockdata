@@ -1,20 +1,16 @@
-// Put your API key here (Finnhub)
-const FINNHUB_KEY = "d5u35jpr01qtjet1rkegd5u35jpr01qtjet1rkf0";
+// Paste your Finnhub key here
+const FINNHUB_KEY = "PASTE_YOUR_KEY_HERE";
 
-// Minimal “giants” list (add more or all 50)
-const symbols = [
-  "RELIANCE.NS","HDFCBANK.NS","ICICIBANK.NS","TCS.NS","INFY.NS",
-  "SBIN.NS","BHARTIARTL.NS","HINDUNILVR.NS","LT.NS","BAJFINANCE.NS"
-];
+// US tickers (these should work on free plan)
+const tickers = ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "TSLA", "META", "SPY"];
 
-// Finnhub quote endpoint
-async function fetchQuote(sym) {
-  const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(sym)}&token=${FINNHUB_KEY}`;
+async function fetchQuote(ticker) {
+  const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(ticker)}&token=${d5u35jpr01qtjet1rkegd5u35jpr01qtjet1rkf0}`;
   const r = await fetch(url);
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   const j = await r.json();
-  // Finnhub fields: c=current, d=change, dp=change%, t=timestamp
-  return { sym, price: j.c, change: j.d, changePct: j.dp, t: j.t };
+  // c=current, d=change, dp=change%, t=timestamp
+  return { ticker, price: j.c, change: j.d, changePct: j.dp, t: j.t };
 }
 
 function fmt(n) {
@@ -26,7 +22,7 @@ function rowHtml(q) {
   const time = q.t ? new Date(q.t * 1000).toLocaleTimeString() : "—";
   return `
     <tr>
-      <td>${q.sym}</td>
+      <td>${q.ticker}</td>
       <td>${fmt(q.price)}</td>
       <td class="${cls}">${fmt(q.change)}</td>
       <td class="${cls}">${fmt(q.changePct)}%</td>
@@ -39,14 +35,14 @@ async function load() {
   const tbody = document.getElementById("rows");
 
   if (!FINNHUB_KEY || FINNHUB_KEY.includes("PASTE")) {
-    status.textContent = "Add your Finnhub API key in script.js";
+    status.textContent = "Paste your Finnhub API key in script.js (FINNHUB_KEY).";
     return;
   }
 
   status.textContent = "Fetching quotes…";
   try {
-    const results = await Promise.all(symbols.map(fetchQuote));
-    // sort by change% descending (you can change this)
+    const results = await Promise.all(tickers.map(fetchQuote));
+    // sort by change% desc
     results.sort((a,b) => (b.changePct||0) - (a.changePct||0));
     tbody.innerHTML = results.map(rowHtml).join("");
     status.textContent = `Updated: ${new Date().toLocaleTimeString()}`;
@@ -55,6 +51,6 @@ async function load() {
   }
 }
 
-// load now and refresh every 60s
 load();
-setInterval(load, 60000);
+// refresh every 30s (adjust if you hit rate limits)
+setInterval(load, 30000);

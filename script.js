@@ -5,7 +5,7 @@ const FINNHUB_KEY = "PASTE_YOUR_KEY_HERE";
 const tickers = ["AAPL", "MSFT", "NVDA", "AMZN", "GOOGL", "TSLA", "META", "SPY"];
 
 async function fetchQuote(ticker) {
-  const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(ticker)}&token=${d5u35jpr01qtjet1rkegd5u35jpr01qtjet1rkf0}`;
+  const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(ticker)}&token=${d5u3bahr01qtjet1s670d5u3bahr01qtjet1s67g}`;
   const r = await fetch(url);
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   const j = await r.json();

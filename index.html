@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>NIFTY 50 Live</title>
+  <style>
+    body { font-family: system-ui, Arial; margin: 20px; }
+    table { border-collapse: collapse; width: 100%; }
+    th, td { padding: 10px; border-bottom: 1px solid #ddd; text-align: left; }
+    th { position: sticky; top: 0; background: #fff; }
+    .up { color: green; }
+    .down { color: red; }
+    .muted { color: #666; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h1>NIFTY 50 Live (Dashboard)</h1>
+  <div class="muted" id="status">Loading…</div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Symbol</th>
+        <th>Price</th>
+        <th>Change</th>
+        <th>Change %</th>
+        <th>Updated</th>
+      </tr>
+    </thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+  <script src="script.js"></script>
+</body>
+</html>

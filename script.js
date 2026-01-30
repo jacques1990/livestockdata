@@ -1,51 +1,56 @@
-// Finnhub API key (public – OK for testing)
-const FINNHUB_KEY = "d5u3bahr01qtjet1s670d5u3bahr01qtjet1s67g";
-
-// US tickers – free plan supports these
-const tickers = [
-  "AAPL",
-  "MSFT",
-  "NVDA",
-  "AMZN",
-  "GOOGL",
-  "TSLA",
-  "META",
-  "SPY"
+// Start with “giants” (add all 50 later)
+const symbols = [
+  "RELIANCE:NSE",
+  "HDFCBANK:NSE",
+  "ICICIBANK:NSE",
+  "TCS:NSE",
+  "INFY:NSE",
+  "SBIN:NSE",
+  "BHARTIARTL:NSE",
+  "LT:NSE",
+  "HINDUNILVR:NSE",
+  "BAJFINANCE:NSE"
 ];
 
-async function fetchQuote(ticker) {
-  const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(
-    ticker
-  )}&token=${FINNHUB_KEY}`;
+// Twelve Data batch quote endpoint (many symbols in one request)
+async function fetchBatchQuotes(apiKey, symbolList) {
+  const joined = symbolList.join(",");
+  const url =
+    `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(joined)}` +
+    `&apikey=${encodeURIComponent(7eca87452f4849d99f5c30f227dbcdcc)}`;
 
   const r = await fetch(url);
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  const j = await r.json();
+  const text = await r.text();
+  if (!r.ok) throw new Error(`HTTP ${r.status}: ${text}`);
 
-  // c=current, d=change, dp=change%, t=timestamp
-  return {
-    ticker,
-    price: j.c,
-    change: j.d,
-    changePct: j.dp,
-    t: j.t
-  };
+  const data = JSON.parse(text);
+  // If key is invalid, Twelve Data often returns: { status:"error", message:"..." }
+  if (data && data.status === "error") throw new Error(`API: ${data.message || text}`);
+  return data;
+}
+
+function num(x) {
+  const n = Number(x);
+  return Number.isFinite(n) ? n : null;
 }
 
 function fmt(n) {
-  return typeof n === "number" && isFinite(n) ? n.toFixed(2) : "—";
+  return n === null ? "—" : n.toFixed(2);
 }
 
-function rowHtml(q) {
-  const cls = q.change > 0 ? "up" : q.change < 0 ? "down" : "";
-  const time = q.t ? new Date(q.t * 1000).toLocaleTimeString() : "—";
+function rowHtml(sym, q) {
+  const price = num(q.close ?? q.price ?? q.last);
+  const change = num(q.change);
+  const changePct = num(q.percent_change);
+  const cls = change > 0 ? "up" : change < 0 ? "down" : "";
+  const time = q.datetime || "—";
 
   return `
     <tr>
-      <td>${q.ticker}</td>
-      <td>${fmt(q.price)}</td>
-      <td class="${cls}">${fmt(q.change)}</td>
-      <td class="${cls}">${fmt(q.changePct)}%</td>
+      <td>${sym.split(":")[0]}</td>
+      <td>${fmt(price)}</td>
+      <td class="${cls}">${fmt(change)}</td>
+      <td class="${cls}">${changePct === null ? "—" : changePct.toFixed(2) + "%"}</td>
       <td>${time}</td>
     </tr>`;
 }
@@ -53,19 +58,34 @@ function rowHtml(q) {
 async function load() {
   const status = document.getElementById("status");
   const tbody = document.getElementById("rows");
+  const apiKey = document.getElementById("apikey").value.trim();
+
+  if (!apiKey) {
+    status.textContent = "Paste your Twelve Data API key, then click Load Quotes.";
+    return;
+  }
 
   status.textContent = "Fetching quotes…";
-
   try {
-    const results = await Promise.all(tickers.map(fetchQuote));
-    results.sort((a, b) => (b.changePct || 0) - (a.changePct || 0));
-    tbody.innerHTML = results.map(rowHtml).join("");
+    const data = await fetchBatchQuotes(apiKey, symbols);
+
+    // data is keyed by symbol in batch mode: data["RELIANCE:NSE"] = {...}
+    const rows = symbols.map(sym => rowHtml(sym, data[sym] || {})).join("");
+    tbody.innerHTML = rows;
+
     status.textContent = `Updated: ${new Date().toLocaleTimeString()}`;
   } catch (e) {
     status.textContent = `Error: ${e.message}`;
   }
 }
 
+document.getElementById("loadBtn").addEventListener("click", load);
+
+// Auto-refresh every 60s after first load
+setInterval(() => {
+  // only refresh if key exists
+  if (document.getElementById("apikey").value.trim()) load();
+}, 60000);
+
+// initial message
 load();
-// refresh every 30 seconds (safe for free tier)
-setInterval(load, 30000);

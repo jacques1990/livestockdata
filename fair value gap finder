@@ -1,0 +1,76 @@
+//@version=5
+indicator("Auto FVG Marker (Fixed)", overlay=true, max_boxes_count=500)
+
+// ───── Inputs ─────
+showBull   = input.bool(true,  "Show Bullish FVG")
+showBear   = input.bool(true,  "Show Bearish FVG")
+extendBars = input.int(150,    "Extend (bars)", minval=1, maxval=500)
+deleteFill = input.bool(true,  "Delete When Filled")
+
+// ───── NEW: Style Inputs (Shade / Transparency) ─────
+bullColor      = input.color(color.lime, "Bullish Zone Color")
+bearColor      = input.color(color.red,  "Bearish Zone Color")
+
+bullShadeTrans = input.int(85, "Bullish Zone Transparency (0-100)", minval=0, maxval=100)
+bearShadeTrans = input.int(85, "Bearish Zone Transparency (0-100)", minval=0, maxval=100)
+
+showBorder     = input.bool(true, "Show Zone Border")
+borderTrans    = input.int(40, "Border Transparency (0-100)", minval=0, maxval=100)
+
+// Build final colors
+bullFill   = color.new(bullColor, bullShadeTrans)
+bearFill   = color.new(bearColor, bearShadeTrans)
+
+bullBorder = showBorder ? color.new(bullColor, borderTrans) : color.new(bullColor, 100)
+bearBorder = showBorder ? color.new(bearColor, borderTrans) : color.new(bearColor, 100)
+
+// ───── FVG Conditions (3-candle model) ─────
+// Bullish FVG: current low > high[2]
+bullFVG = low > high[2]
+
+// Bearish FVG: current high < low[2]
+bearFVG = high < low[2]
+
+// Arrays to store boxes
+var box[] bullBoxes = array.new_box()
+var box[] bearBoxes = array.new_box()
+
+// ───── Create Bullish FVG ─────
+if showBull and bullFVG
+    // Zone between Candle 2 high and current low
+    top  = low
+    bot  = high[2]
+    left = bar_index - 2
+    b = box.new(left, top, left + extendBars, bot,
+         bgcolor=bullFill, border_color=bullBorder)
+    array.push(bullBoxes, b)
+
+// ───── Create Bearish FVG ─────
+if showBear and bearFVG
+    // Zone between Candle 2 low and current high
+    top  = low[2]
+    bot  = high
+    left = bar_index - 2
+    b = box.new(left, top, left + extendBars, bot,
+         bgcolor=bearFill, border_color=bearBorder)
+    array.push(bearBoxes, b)
+
+// ───── Delete When Filled (with empty-array protection) ─────
+if deleteFill
+    // Bullish FVG is “filled” when price trades down to the LOWER boundary (bot)
+    if array.size(bullBoxes) > 0
+        for i = array.size(bullBoxes) - 1 to 0
+            b = array.get(bullBoxes, i)
+            bot = box.get_bottom(b)
+            if low <= bot
+                box.delete(b)
+                array.remove(bullBoxes, i)
+
+    // Bearish FVG is “filled” when price trades up to the UPPER boundary (top)
+    if array.size(bearBoxes) > 0
+        for i = array.size(bearBoxes) - 1 to 0
+            b = array.get(bearBoxes, i)
+            top = box.get_top(b)
+            if high >= top
+                box.delete(b)
+                array.remove(bearBoxes, i)

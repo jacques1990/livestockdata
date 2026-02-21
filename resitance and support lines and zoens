@@ -1,0 +1,175 @@
+//@version=5
+indicator("Support & Resistance Levels", overlay=true)
+
+// ============================================
+// INPUT PARAMETERS
+// ============================================
+lookback = input.int(50, "Lookback Period", minval=10, maxval=500)
+pivotStrength = input.int(3, "Pivot Strength", minval=1, maxval=15)
+numLevels = input.int(3, "Number of Levels", minval=1, maxval=8)
+zonePercent = input.float(0.3, "Zone Width %", minval=0.1, maxval=2.0)
+extendRight = input.int(50, "Extend Lines Right", minval=10, maxval=200)
+
+// Colors
+resistanceColor = input.color(color.new(color.red, 80), "Resistance Zone")
+supportColor = input.color(color.new(color.green, 80), "Support Zone")
+resistanceLineColor = input.color(color.red, "Resistance Line")
+supportLineColor = input.color(color.green, "Support Line")
+
+// ============================================
+// FIND PIVOT HIGHS AND LOWS
+// ============================================
+var float[] resistanceLevels = array.new_float()
+var float[] supportLevels = array.new_float()
+
+ph = ta.pivothigh(high, pivotStrength, pivotStrength)
+pl = ta.pivotlow(low, pivotStrength, pivotStrength)
+
+// Store pivot points
+if not na(ph)
+    array.push(resistanceLevels, ph)
+    
+if not na(pl)
+    array.push(supportLevels, pl)
+
+// Keep arrays manageable
+if array.size(resistanceLevels) > lookback
+    array.shift(resistanceLevels)
+    
+if array.size(supportLevels) > lookback
+    array.shift(supportLevels)
+
+// ============================================
+// GET STRONGEST LEVELS
+// ============================================
+getTopLevels(levels, abovePrice) =>
+    result = array.new_float()
+    
+    if array.size(levels) > 0
+        levelCounts = array.new_int()
+        uniqueLevels = array.new_float()
+        
+        for i = 0 to array.size(levels) - 1
+            lvl = array.get(levels, i)
+            threshold = lvl * (zonePercent / 100)
+            
+            foundMatch = false
+            if array.size(uniqueLevels) > 0
+                for j = 0 to array.size(uniqueLevels) - 1
+                    existingLvl = array.get(uniqueLevels, j)
+                    if math.abs(lvl - existingLvl) <= threshold
+                        array.set(levelCounts, j, array.get(levelCounts, j) + 1)
+                        foundMatch := true
+                        break
+            
+            if not foundMatch
+                array.push(uniqueLevels, lvl)
+                array.push(levelCounts, 1)
+        
+        // Filter by price position
+        filteredLevels = array.new_float()
+        filteredCounts = array.new_int()
+        
+        if array.size(uniqueLevels) > 0
+            for i = 0 to array.size(uniqueLevels) - 1
+                lvl = array.get(uniqueLevels, i)
+                if abovePrice
+                    if lvl > close
+                        array.push(filteredLevels, lvl)
+                        array.push(filteredCounts, array.get(levelCounts, i))
+                else
+                    if lvl < close
+                        array.push(filteredLevels, lvl)
+                        array.push(filteredCounts, array.get(levelCounts, i))
+        
+        // Sort by strength and take top levels
+        if array.size(filteredLevels) > 0
+            maxIter = math.min(array.size(filteredLevels), numLevels)
+            for i = 0 to maxIter - 1
+                if i < array.size(filteredCounts)
+                    maxCount = 0
+                    maxIndex = i
+                    for j = i to array.size(filteredCounts) - 1
+                        cnt = array.get(filteredCounts, j)
+                        if cnt > maxCount
+                            maxCount := cnt
+                            maxIndex := j
+                    
+                    // Swap
+                    if maxIndex != i and maxIndex < array.size(filteredLevels)
+                        tempLvl = array.get(filteredLevels, i)
+                        tempCount = array.get(filteredCounts, i)
+                        array.set(filteredLevels, i, array.get(filteredLevels, maxIndex))
+                        array.set(filteredCounts, i, array.get(filteredCounts, maxIndex))
+                        array.set(filteredLevels, maxIndex, tempLvl)
+                        array.set(filteredCounts, maxIndex, tempCount)
+                    
+                    if i < array.size(filteredLevels)
+                        array.push(result, array.get(filteredLevels, i))
+    
+    result
+
+topResistance = getTopLevels(resistanceLevels, true)
+topSupport = getTopLevels(supportLevels, false)
+
+// ============================================
+// DRAW LEVELS
+// ============================================
+var line[] rLines = array.new_line()
+var box[] rBoxes = array.new_box()
+var line[] sLines = array.new_line()
+var box[] sBoxes = array.new_box()
+
+// Clear old drawings
+if barstate.islast
+    if array.size(rLines) > 0
+        for l in rLines
+            line.delete(l)
+    if array.size(rBoxes) > 0
+        for b in rBoxes
+            box.delete(b)
+    if array.size(sLines) > 0
+        for l in sLines
+            line.delete(l)
+    if array.size(sBoxes) > 0
+        for b in sBoxes
+            box.delete(b)
+    
+    array.clear(rLines)
+    array.clear(rBoxes)
+    array.clear(sLines)
+    array.clear(sBoxes)
+    
+    // Draw resistance
+    if array.size(topResistance) > 0
+        for i = 0 to array.size(topResistance) - 1
+            level = array.get(topResistance, i)
+            zone = level * (zonePercent / 100)
+            
+            b = box.new(bar_index - lookback, level - zone, bar_index + extendRight, level + zone, border_color=na, bgcolor=resistanceColor)
+            array.push(rBoxes, b)
+            
+            l = line.new(bar_index - lookback, level, bar_index + extendRight, level, color=resistanceLineColor, width=2)
+            array.push(rLines, l)
+    
+    // Draw support
+    if array.size(topSupport) > 0
+        for i = 0 to array.size(topSupport) - 1
+            level = array.get(topSupport, i)
+            zone = level * (zonePercent / 100)
+            
+            b = box.new(bar_index - lookback, level - zone, bar_index + extendRight, level + zone, border_color=na, bgcolor=supportColor)
+            array.push(sBoxes, b)
+            
+            l = line.new(bar_index - lookback, level, bar_index + extendRight, level, color=supportLineColor, width=2)
+            array.push(sLines, l)
+
+// ============================================
+// INFO LABEL
+// ============================================
+if barstate.islast
+    var label info = na
+    label.delete(info)
+    
+    txt = "R:" + str.tostring(array.size(topResistance)) + " S:" + str.tostring(array.size(topSupport))
+    info := label.new(bar_index, high, txt, style=label.style_label_down, color=color.new(color.gray, 70), textcolor=color.white, size=size.small)

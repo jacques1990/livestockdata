@@ -1,233 +1,187 @@
 //@version=5
-indicator("S/R Zones + LIVE Breakout/Rejection Signals", overlay=true, max_lines_count=500, max_boxes_count=500)
+indicator("LIVE Wick B/S on S/R (Safe)", overlay=true, max_lines_count=500, max_boxes_count=500)
 
-// =====================
-// Inputs
-// =====================
-lookback      = input.int(200, "Max stored pivots", minval=50, maxval=2000)
-pivotStrength = input.int(3, "Pivot Strength", minval=1, maxval=15)
-numLevels     = input.int(3, "Draw levels (recent)", minval=1, maxval=10)
-zonePercent   = input.float(0.30, "Zone Width %", minval=0.05, maxval=3.0)
-extendRight   = input.int(50, "Extend right bars", minval=10, maxval=300)
+// ===== Inputs =====
+windowMinutes     = input.int(10, "Update drawings window (minutes)", minval=2, maxval=240)
+lookbackPivots    = input.int(800, "Pivot memory (signals)", minval=50, maxval=5000)
+pivotStrength     = input.int(2, "Pivot Strength (1-2 best 1m/3m)", minval=1, maxval=15)
+zonePercent       = input.float(0.30, "Zone Width %", minval=0.05, maxval=3.0)
+extendRight       = input.int(120, "Extend right bars", minval=10, maxval=500)
+maxDrawn          = input.int(120, "Max drawings kept", minval=20, maxval=400)
 
-// Signal mode
-liveMode      = input.bool(true, "LIVE signals (repaint intrabar)")
-confirmBars   = input.int(1, "Confirm bars (0=now, 1=2nd candle, 2=3rd candle)", minval=0, maxval=3)
+minWickPct        = input.float(0.45, "Min wick % of range", minval=0.10, maxval=0.95)
+maxOppWickPct     = input.float(0.25, "Max opposite wick %", minval=0.05, maxval=0.90)
+minRangeTicks     = input.int(3, "Min candle range (ticks)", minval=1, maxval=200)
+returnBufferPct   = input.float(0.00, "Return buffer %", minval=0.0, maxval=0.50)
 
-// Candle thresholds (used for CONFIRMED signals)
-minBodyPct    = input.float(0.55, "Min body % of range (confirmed only)", minval=0.10, maxval=0.95)
-maxSmallWick  = input.float(0.25, "Max wick % (confirmed only)", minval=0.05, maxval=0.70)
-minLongWick   = input.float(0.45, "Min wick % (rejection, confirmed only)", minval=0.10, maxval=0.95)
+useEMAFilter      = input.bool(true, "EMA filter")
+emaFastLen        = input.int(14, "EMA Fast", minval=2, maxval=200)
+emaSlowLen        = input.int(20, "EMA Slow", minval=2, maxval=300)
 
-// Optional filter
-useEMAFilter  = input.bool(true, "Filter with EMA trend")
-emaFastLen    = input.int(14, "EMA Fast", minval=2, maxval=200)
-emaSlowLen    = input.int(20, "EMA Slow", minval=2, maxval=300)
+resZoneColor      = input.color(color.new(color.red, 85), "Resistance Zone")
+supZoneColor      = input.color(color.new(color.green, 85), "Support Zone")
+resLineColor      = input.color(color.red, "Resistance Line")
+supLineColor      = input.color(color.green, "Support Line")
 
-// Colors
-resZoneColor  = input.color(color.new(color.red, 85), "Resistance Zone")
-supZoneColor  = input.color(color.new(color.green, 85), "Support Zone")
-resLineColor  = input.color(color.red, "Resistance Line")
-supLineColor  = input.color(color.green, "Support Line")
+// ===== Minutes -> bars =====
+tfSec = timeframe.in_seconds(timeframe.period)
+barsBackRaw = 10.0
+if tfSec > 0
+    barsBackRaw := math.ceil(windowMinutes * 60.0 / tfSec)
+barsBack = int(math.max(barsBackRaw, 5))
+minKeepIndex = bar_index - barsBack
 
-// =====================
-// Store pivot highs/lows
-// =====================
-var float[] resArr = array.new_float()
-var float[] supArr = array.new_float()
-
-ph = ta.pivothigh(high, pivotStrength, pivotStrength)
-pl = ta.pivotlow(low, pivotStrength, pivotStrength)
-
-if not na(ph)
-    array.push(resArr, ph)
-if not na(pl)
-    array.push(supArr, pl)
-
-if array.size(resArr) > lookback
-    array.shift(resArr)
-if array.size(supArr) > lookback
-    array.shift(supArr)
-
-// =====================
-// Nearest R above / S below (for signals)
-// =====================
-float rLevel = na
-float sLevel = na
-
-if array.size(resArr) > 0
-    for i = 0 to array.size(resArr) - 1
-        lvl = array.get(resArr, i)
-        if lvl > close
-            rLevel := na(rLevel) ? lvl : math.min(rLevel, lvl)
-
-if array.size(supArr) > 0
-    for i = 0 to array.size(supArr) - 1
-        lvl = array.get(supArr, i)
-        if lvl < close
-            sLevel := na(sLevel) ? lvl : math.max(sLevel, lvl)
-
-rZone = not na(rLevel) ? rLevel * (zonePercent / 100) : na
-sZone = not na(sLevel) ? sLevel * (zonePercent / 100) : na
-
-// =====================
-// EMA filter
-// =====================
+// ===== EMA filter =====
 emaFast = ta.ema(close, emaFastLen)
 emaSlow = ta.ema(close, emaSlowLen)
 emaBull = emaFast > emaSlow and close > emaFast
 emaBear = emaFast < emaSlow and close < emaFast
-passBull = (not useEMAFilter) or emaBull
-passBear = (not useEMAFilter) or emaBear
-
+passBull = true
+passBear = true
+if useEMAFilter
+    passBull := emaBull
+    passBear := emaBear
 plot(useEMAFilter ? emaFast : na, "EMA Fast", color=color.new(color.yellow, 0))
 plot(useEMAFilter ? emaSlow : na, "EMA Slow", color=color.new(color.orange, 0))
 
-// =====================
-// Candle anatomy (for CONFIRMED only)
-// =====================
-rng   = high - low
-body  = math.abs(close - open)
-upper = high - math.max(open, close)
-lower = math.min(open, close) - low
+// ===== Pivot detection =====
+ph = ta.pivothigh(high, pivotStrength, pivotStrength)
+pl = ta.pivotlow(low, pivotStrength, pivotStrength)
+pivotBar = bar_index - pivotStrength
 
-bodyPct  = rng > 0 ? body / rng : 0.0
-upperPct = rng > 0 ? upper / rng : 0.0
-lowerPct = rng > 0 ? lower / rng : 0.0
+// ===== Store pivots for signals =====
+var float[] resAll = array.new_float()
+var float[] supAll = array.new_float()
 
-cleanBull = (bodyPct >= minBodyPct) and (upperPct <= maxSmallWick)
-cleanBear = (bodyPct >= minBodyPct) and (lowerPct <= maxSmallWick)
-rejRes    = (upperPct >= minLongWick)
-rejSup    = (lowerPct >= minLongWick)
+if not na(ph)
+    array.push(resAll, ph)
+if not na(pl)
+    array.push(supAll, pl)
 
-// =====================
-// Core level tests
-// =====================
-haveR = not na(rLevel) and not na(rZone)
-haveS = not na(sLevel) and not na(sZone)
+if array.size(resAll) > lookbackPivots
+    array.shift(resAll)
+if array.size(supAll) > lookbackPivots
+    array.shift(supAll)
 
-rBreakLine = haveR ? (rLevel + rZone) : na
-sBreakLine = haveS ? (sLevel - sZone) : na
-
-// =====================
-// LIVE signals (intrabar)  ✅ can repaint
-// =====================
-liveBuyBO   = haveR and (high > rBreakLine) and (close > rLevel) and passBull
-liveSellBD  = haveS and (low  < sBreakLine) and (close < sLevel) and passBear
-
-liveSellRJ  = haveR and (high >= (rLevel - rZone)) and (close < rLevel) and passBear
-liveBuyRJ   = haveS and (low  <= (sLevel + sZone)) and (close > sLevel) and passBull
-
-// =====================
-// CONFIRMED signals (after candle close) ✅ best accuracy
-// =====================
-breakAbove = haveR ? (close > rBreakLine) : false
-breakBelow = haveS ? (close < sBreakLine) : false
-
-heldAbove = breakAbove
-heldBelow = breakBelow
-
-if confirmBars >= 1
-    heldAbove := heldAbove and breakAbove[1]
-    heldBelow := heldBelow and breakBelow[1]
-if confirmBars >= 2
-    heldAbove := heldAbove and breakAbove[2]
-    heldBelow := heldBelow and breakBelow[2]
-if confirmBars >= 3
-    heldAbove := heldAbove and breakAbove[3]
-    heldBelow := heldBelow and breakBelow[3]
-
-confBuyBO   = heldAbove and cleanBull and passBull and barstate.isconfirmed
-confSellBD  = heldBelow and cleanBear and passBear and barstate.isconfirmed
-confSellRJ  = haveR and (high >= (rLevel - rZone)) and rejRes and (close < rLevel) and passBear and barstate.isconfirmed
-confBuyRJ   = haveS and (low  <= (sLevel + sZone)) and rejSup and (close > sLevel) and passBull and barstate.isconfirmed
-
-// =====================
-// Final signals based on mode
-// =====================
-buyBO  = liveMode ? liveBuyBO  : confBuyBO
-sellBD = liveMode ? liveSellBD : confSellBD
-sellRJ = liveMode ? liveSellRJ : confSellRJ
-buyRJ  = liveMode ? liveBuyRJ  : confBuyRJ
-
-// =====================
-// Plot signals (FIXED: no dynamic text)
-// =====================
-// BUY Breakout
-plotshape(liveMode and buyBO,  title="BUY Breakout LIVE", style=shape.labelup, text="BUY BO(L)",
-     location=location.belowbar, size=size.tiny, color=color.new(color.green, 0), textcolor=color.white)
-plotshape((not liveMode) and buyBO, title="BUY Breakout CONF", style=shape.labelup, text="BUY BO",
-     location=location.belowbar, size=size.tiny, color=color.new(color.green, 0), textcolor=color.white)
-
-// SELL Breakdown
-plotshape(liveMode and sellBD, title="SELL Breakdown LIVE", style=shape.labeldown, text="SELL BD(L)",
-     location=location.abovebar, size=size.tiny, color=color.new(color.red, 0), textcolor=color.white)
-plotshape((not liveMode) and sellBD, title="SELL Breakdown CONF", style=shape.labeldown, text="SELL BD",
-     location=location.abovebar, size=size.tiny, color=color.new(color.red, 0), textcolor=color.white)
-
-// BUY Reject
-plotshape(liveMode and buyRJ,  title="BUY Reject LIVE", style=shape.triangleup, text="BUY RJ(L)",
-     location=location.belowbar, size=size.tiny, color=color.new(color.lime, 0), textcolor=color.black)
-plotshape((not liveMode) and buyRJ, title="BUY Reject CONF", style=shape.triangleup, text="BUY RJ",
-     location=location.belowbar, size=size.tiny, color=color.new(color.lime, 0), textcolor=color.black)
-
-// SELL Reject
-plotshape(liveMode and sellRJ, title="SELL Reject LIVE", style=shape.triangledown, text="SELL RJ(L)",
-     location=location.abovebar, size=size.tiny, color=color.new(color.maroon, 0), textcolor=color.white)
-plotshape((not liveMode) and sellRJ, title="SELL Reject CONF", style=shape.triangledown, text="SELL RJ",
-     location=location.abovebar, size=size.tiny, color=color.new(color.maroon, 0), textcolor=color.white)
-
-// =====================
-// Alerts
-// =====================
-alertcondition(buyBO,  "BUY Breakout",   "BUY Breakout signal")
-alertcondition(sellBD, "SELL Breakdown", "SELL Breakdown signal")
-alertcondition(buyRJ,  "BUY Rejection",  "BUY Rejection signal")
-alertcondition(sellRJ, "SELL Rejection", "SELL Rejection signal")
-
-// =====================
-// Draw recent levels (last bar only)
-// =====================
+// ===== Drawings storage (NO full redraw) =====
 var line[] rLines = array.new_line()
 var box[]  rBoxes = array.new_box()
 var line[] sLines = array.new_line()
 var box[]  sBoxes = array.new_box()
 
+f_trim_drawings() =>
+    while array.size(rLines) > maxDrawn
+        line.delete(array.shift(rLines))
+    while array.size(rBoxes) > maxDrawn
+        box.delete(array.shift(rBoxes))
+    while array.size(sLines) > maxDrawn
+        line.delete(array.shift(sLines))
+    while array.size(sBoxes) > maxDrawn
+        box.delete(array.shift(sBoxes))
+
+// Add new drawings only when a pivot is confirmed AND pivot is within window
+if not na(ph) and pivotBar >= minKeepIndex
+    levelR = ph
+    zoneR = levelR * (zonePercent / 100.0)
+    leftX = pivotBar
+    rightX = bar_index + extendRight
+    bR = box.new(leftX, levelR - zoneR, rightX, levelR + zoneR, border_color=na, bgcolor=resZoneColor)
+    lR = line.new(leftX, levelR, rightX, levelR, color=resLineColor, width=2)
+    array.push(rBoxes, bR)
+    array.push(rLines, lR)
+    f_trim_drawings()
+
+if not na(pl) and pivotBar >= minKeepIndex
+    levelS = pl
+    zoneS = levelS * (zonePercent / 100.0)
+    leftX2 = pivotBar
+    rightX2 = bar_index + extendRight
+    bS = box.new(leftX2, levelS - zoneS, rightX2, levelS + zoneS, border_color=na, bgcolor=supZoneColor)
+    lS = line.new(leftX2, levelS, rightX2, levelS, color=supLineColor, width=2)
+    array.push(sBoxes, bS)
+    array.push(sLines, lS)
+    f_trim_drawings()
+
+// ===== Lock reference price (prevents level jump intrabar) =====
+float refPrice = close
+if not barstate.isconfirmed
+    refPrice := close[1]
+
+// ===== Nearest R above / S below refPrice =====
+float rLevel = na
+float sLevel = na
+
+if array.size(resAll) > 0
+    for i = 0 to array.size(resAll) - 1
+        v = array.get(resAll, i)
+        if v > refPrice
+            if na(rLevel)
+                rLevel := v
+            else
+                rLevel := math.min(rLevel, v)
+
+if array.size(supAll) > 0
+    for i = 0 to array.size(supAll) - 1
+        v = array.get(supAll, i)
+        if v < refPrice
+            if na(sLevel)
+                sLevel := v
+            else
+                sLevel := math.max(sLevel, v)
+
+// ===== Zones + buffers =====
+float rZone = na
+float sZone = na
+float retBufR = 0.0
+float retBufS = 0.0
+
+if not na(rLevel)
+    rZone := rLevel * (zonePercent / 100.0)
+    retBufR := rLevel * (returnBufferPct / 100.0)
+
+if not na(sLevel)
+    sZone := sLevel * (zonePercent / 100.0)
+    retBufS := sLevel * (returnBufferPct / 100.0)
+
+haveR = not na(rLevel) and not na(rZone)
+haveS = not na(sLevel) and not na(sZone)
+
+// ===== Candle anatomy (LIVE wick %) =====
+rng = high - low
+bodyTop = math.max(open, close)
+bodyBot = math.min(open, close)
+upperW = high - bodyTop
+lowerW = bodyBot - low
+
+upperPct = 0.0
+lowerPct = 0.0
+if rng > 0
+    upperPct := upperW / rng
+    lowerPct := lowerW / rng
+
+minRange = syminfo.mintick * minRangeTicks
+rangeOK = rng >= minRange
+
+// ===== Touch rules =====
+touchSup = false
+touchRes = false
+if haveS
+    touchSup := low <= (sLevel + sZone)
+if haveR
+    touchRes := high >= (rLevel - rZone)
+
+// ===== LIVE wick rejection signals =====
+buyLive = rangeOK and touchSup and (lowerPct >= minWickPct) and (upperPct <= maxOppWickPct) and (close >= (sLevel + retBufS)) and passBull
+sellLive = rangeOK and touchRes and (upperPct >= minWickPct) and (lowerPct <= maxOppWickPct) and (close <= (rLevel - retBufR)) and passBear
+
+// ===== Show ONLY current label =====
+var label liveLabel = na
 if barstate.islast
-    if array.size(rLines) > 0
-        for i = 0 to array.size(rLines) - 1
-            line.delete(array.get(rLines, i))
-    if array.size(rBoxes) > 0
-        for i = 0 to array.size(rBoxes) - 1
-            box.delete(array.get(rBoxes, i))
-    if array.size(sLines) > 0
-        for i = 0 to array.size(sLines) - 1
-            line.delete(array.get(sLines, i))
-    if array.size(sBoxes) > 0
-        for i = 0 to array.size(sBoxes) - 1
-            box.delete(array.get(sBoxes, i))
+    label.delete(liveLabel)
+    if buyLive
+        liveLabel := label.new(bar_index, low, "B", style=label.style_label_up, color=color.green, textcolor=color.white, size=size.large)
+    else if sellLive
+        liveLabel := label.new(bar_index, high, "S", style=label.style_label_down, color=color.red, textcolor=color.white, size=size.large)
 
-    array.clear(rLines)
-    array.clear(rBoxes)
-    array.clear(sLines)
-    array.clear(sBoxes)
-
-    if array.size(resArr) > 0
-        start = math.max(0, array.size(resArr) - numLevels)
-        for i = start to array.size(resArr) - 1
-            level = array.get(resArr, i)
-            zone  = level * (zonePercent / 100)
-            b = box.new(bar_index - lookback, level - zone, bar_index + extendRight, level + zone, border_color=na, bgcolor=resZoneColor)
-            l = line.new(bar_index - lookback, level, bar_index + extendRight, level, color=resLineColor, width=2)
-            array.push(rBoxes, b)
-            array.push(rLines, l)
-
-    if array.size(supArr) > 0
-        start2 = math.max(0, array.size(supArr) - numLevels)
-        for i = start2 to array.size(supArr) - 1
-            level = array.get(supArr, i)
-            zone  = level * (zonePercent / 100)
-            b = box.new(bar_index - lookback, level - zone, bar_index + extendRight, level + zone, border_color=na, bgcolor=supZoneColor)
-            l = line.new(bar_index - lookback, level, bar_index + extendRight, level, color=supLineColor, width=2)
-            array.push(sBoxes, b)
-            array.push(sLines, l)
+alertcondition(buyLive, "LIVE B", "LIVE B (support rejection)")
+alertcondition(sellLive, "LIVE S", "LIVE S (resistance rejection)")

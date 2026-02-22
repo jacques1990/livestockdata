@@ -1,37 +1,577 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>US Stocks Live (Finnhub)</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Demo Market Order Practice + Trailing Stop</title>
   <style>
-    body { font-family: system-ui, Arial; margin: 20px; }
-    table { width:100%; border-collapse: collapse; }
-    th, td { padding: 10px; border-bottom: 1px solid #ddd; text-align:left; }
-    th { position: sticky; top: 0; background: #fff; }
-    .up { color: green; }
-    .down { color: red; }
-    .muted { color:#666; font-size:14px; }
+    :root { --bg:#0b0f14; --panel:#121925; --text:#e8eef7; --muted:#9bb0c9; --accent:#4da3ff; --good:#3ddc97; --bad:#ff5c7a; }
+    body{ margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial; background:var(--bg); color:var(--text); }
+    .wrap{ max-width:1100px; margin:0 auto; padding:18px; display:grid; gap:14px; grid-template-columns: 1.3fr 0.7fr; }
+    .card{ background:linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)); border:1px solid rgba(255,255,255,0.08); border-radius:16px; padding:14px; }
+    h1{ font-size:18px; margin:0 0 10px; color:var(--text); }
+    .sub{ font-size:13px; color:var(--muted); margin-top:-6px; }
+    .row{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+    button{
+      border:0; border-radius:12px; padding:12px 14px; font-weight:700; cursor:pointer;
+      background:#1c2636; color:var(--text); transition:transform .04s ease;
+    }
+    button:active{ transform:scale(0.98); }
+    .buy{ background:rgba(61,220,151,0.16); border:1px solid rgba(61,220,151,0.35); }
+    .sell{ background:rgba(255,92,122,0.16); border:1px solid rgba(255,92,122,0.35); }
+    .exit{ background:rgba(77,163,255,0.16); border:1px solid rgba(77,163,255,0.35); }
+    .disabled{ opacity:.45; cursor:not-allowed; }
+    label{ font-size:12px; color:var(--muted); }
+    input{
+      width:92px; background:#0f1520; color:var(--text);
+      border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:10px 10px;
+      outline:none;
+    }
+    input:focus{ border-color:rgba(77,163,255,0.65); }
+    .kv{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:10px; }
+    .k{ background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.08); border-radius:12px; padding:10px; }
+    .k .t{ font-size:12px; color:var(--muted); }
+    .k .v{ font-size:16px; font-weight:800; margin-top:2px; }
+    canvas{ width:100%; height:420px; display:block; border-radius:14px; background:#070a10; border:1px solid rgba(255,255,255,0.08); }
+    .log{ height:170px; overflow:auto; font-size:12px; color:var(--muted); padding-right:6px; }
+    .pill{ display:inline-flex; gap:8px; align-items:center; font-size:12px; padding:7px 10px;
+      border-radius:999px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08); color:var(--muted);
+    }
+    .dot{ width:8px; height:8px; border-radius:999px; background:var(--accent); }
+    .rightcol{ display:flex; flex-direction:column; gap:14px; }
+    .bigpl{ font-size:26px; font-weight:900; }
+    .goodtxt{ color:var(--good); }
+    .badtxt{ color:var(--bad); }
+    .muted{ color:var(--muted); }
+    .hr{ height:1px; background:rgba(255,255,255,0.08); margin:12px 0; }
   </style>
 </head>
 <body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Practice Market Orders (Demo) + Trailing Stop</h1>
+      <div class="sub">Price moves ~ <b>10 pips/sec</b> (simulated). Use Market Buy/Sell and Exit to practice.</div>
 
-<h1>🇺🇸 US Stocks (Live – Finnhub)</h1>
-<div id="status" class="muted">Loading…</div>
+      <div class="row" style="margin-top:12px;">
+        <span class="pill"><span class="dot"></span> Symbol: <b>EURUSD (demo)</b></span>
+        <span class="pill">Pip size: <b>0.0001</b></span>
+        <span class="pill">Spread: <b id="spreadPips">1.2</b> pips</span>
+        <span class="pill">Speed: <b id="speedLabel">10</b> pips/sec</span>
+      </div>
 
-<table>
-  <thead>
-    <tr>
-      <th>Ticker</th>
-      <th>Price</th>
-      <th>Change</th>
-      <th>Change %</th>
-      <th>Updated</th>
-    </tr>
-  </thead>
-  <tbody id="rows"></tbody>
-</table>
+      <div style="margin-top:12px;">
+        <canvas id="chart" width="1000" height="420"></canvas>
+      </div>
 
-<script src="script.js"></script>
+      <div class="row" style="margin-top:12px;">
+        <button class="buy" id="buyBtn">MARKET BUY</button>
+        <button class="sell" id="sellBtn">MARKET SELL</button>
+        <button class="exit disabled" id="exitBtn" disabled>EXIT POSITION</button>
+
+        <div style="margin-left:auto; display:flex; gap:10px; flex-wrap:wrap; align-items:end;">
+          <div>
+            <label>Size (units)</label><br/>
+            <input id="sizeInput" type="number" min="1000" step="1000" value="10000" />
+          </div>
+          <div>
+            <label>Stop Loss (pips)</label><br/>
+            <input id="slInput" type="number" min="0" step="1" value="0" />
+          </div>
+          <div>
+            <label>Take Profit (pips)</label><br/>
+            <input id="tpInput" type="number" min="0" step="1" value="0" />
+          </div>
+          <div>
+            <label>Trailing Stop (pips)</label><br/>
+            <input id="trailInput" type="number" min="0" step="1" value="0" />
+          </div>
+          <div>
+            <label>Reset</label><br/>
+            <button id="resetBtn">RESET</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="hr"></div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+        <div>
+          <div class="muted" style="font-weight:700; margin-bottom:6px;">Order Log</div>
+          <div class="log" id="log"></div>
+        </div>
+        <div>
+          <div class="muted" style="font-weight:700; margin-bottom:6px;">Hotkeys</div>
+          <div class="muted" style="font-size:12px; line-height:1.6;">
+            <b>B</b> = Market Buy<br/>
+            <b>S</b> = Market Sell<br/>
+            <b>X</b> = Exit position<br/>
+            <b>R</b> = Reset
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rightcol">
+      <div class="card">
+        <h1>Position</h1>
+        <div class="kv">
+          <div class="k">
+            <div class="t">Status</div>
+            <div class="v" id="posStatus">FLAT</div>
+          </div>
+          <div class="k">
+            <div class="t">Side</div>
+            <div class="v" id="posSide">—</div>
+          </div>
+          <div class="k">
+            <div class="t">Entry</div>
+            <div class="v" id="posEntry">—</div>
+          </div>
+          <div class="k">
+            <div class="t">Size</div>
+            <div class="v" id="posSize">—</div>
+          </div>
+          <div class="k">
+            <div class="t">Unrealized P/L</div>
+            <div class="v bigpl" id="posPL">0.0 pips</div>
+          </div>
+          <div class="k">
+            <div class="t">Bid / Ask</div>
+            <div class="v" id="bidAsk">—</div>
+          </div>
+          <div class="k">
+            <div class="t">Trailing Stop</div>
+            <div class="v" id="trailState">—</div>
+          </div>
+          <div class="k">
+            <div class="t">Trail Anchor</div>
+            <div class="v" id="trailAnchor">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h1>Settings</h1>
+        <div class="row">
+          <div>
+            <label>Speed (pips/sec)</label><br/>
+            <input id="speedInput" type="number" min="1" max="50" step="1" value="10" />
+          </div>
+          <div>
+            <label>Spread (pips)</label><br/>
+            <input id="spreadInput" type="number" min="0" max="5" step="0.1" value="1.2" />
+          </div>
+          <div>
+            <label>Volatility</label><br/>
+            <input id="volInput" type="number" min="0" max="10" step="0.5" value="2.5" />
+          </div>
+        </div>
+        <div class="muted" style="font-size:12px; margin-top:10px;">
+          Trailing uses <b>Bid</b> for BUY and <b>Ask</b> for SELL (realistic close pricing).
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  // ===== Helpers =====
+  const $ = (id) => document.getElementById(id);
+  const fmt = (n, d=5) => Number(n).toFixed(d);
+  const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+
+  // ===== Config =====
+  const pipSize = 0.0001;
+  let speedPps = 10;      // pips per second
+  let spreadPips = 1.2;   // pips
+  let vol = 2.5;          // random wobble strength
+  const ticksPerSec = 20; // simulation update frequency
+  const dt = 1 / ticksPerSec;
+
+  // Candles: 1 candle = 1 second
+  const candleSeconds = 1;
+  const maxCandles = 90;
+
+  // ===== State =====
+  let mid = 1.10000;       // mid price
+  let trend = 0.0;         // drift
+  let time = 0;
+  let candles = [];
+  let currentCandle = null;
+
+  // position:
+  // {side, entry, size, sl, tp, openedAt, trailPips, trailStop, trailAnchor}
+  let position = null;
+
+  // ===== UI =====
+  const canvas = $("chart");
+  const ctx = canvas.getContext("2d");
+
+  const logEl = $("log");
+  function log(msg) {
+    const stamp = new Date().toLocaleTimeString();
+    logEl.innerHTML = `<div>[${stamp}] ${msg}</div>` + logEl.innerHTML;
+  }
+
+  function bidAsk() {
+    const halfSpread = (spreadPips * pipSize) / 2;
+    const bid = mid - halfSpread;
+    const ask = mid + halfSpread;
+    return { bid, ask };
+  }
+
+  function updateTopPills() {
+    $("speedLabel").textContent = speedPps.toFixed(0);
+    $("spreadPips").textContent = spreadPips.toFixed(1);
+  }
+
+  function updatePositionUI() {
+    const { bid, ask } = bidAsk();
+    $("bidAsk").textContent = `${fmt(bid)} / ${fmt(ask)}`;
+
+    const exitBtn = $("exitBtn");
+    if (!position) {
+      $("posStatus").textContent = "FLAT";
+      $("posSide").textContent = "—";
+      $("posEntry").textContent = "—";
+      $("posSize").textContent = "—";
+      $("posPL").textContent = "0.0 pips";
+      $("posPL").classList.remove("goodtxt","badtxt");
+      $("trailState").textContent = "—";
+      $("trailAnchor").textContent = "—";
+      exitBtn.disabled = true;
+      exitBtn.classList.add("disabled");
+      return;
+    }
+
+    $("posStatus").textContent = "OPEN";
+    $("posSide").textContent = position.side;
+    $("posEntry").textContent = fmt(position.entry);
+    $("posSize").textContent = position.size.toLocaleString();
+
+    // P/L in pips (mark-to-market with correct side)
+    const mkt = (position.side === "BUY") ? bid : ask; // close buys at bid, sells at ask
+    const pl = (position.side === "BUY")
+      ? (mkt - position.entry) / pipSize
+      : (position.entry - mkt) / pipSize;
+
+    $("posPL").textContent = `${pl.toFixed(1)} pips`;
+    $("posPL").classList.toggle("goodtxt", pl > 0.01);
+    $("posPL").classList.toggle("badtxt", pl < -0.01);
+
+    // Trailing UI
+    if (position.trailPips > 0) {
+      $("trailState").textContent = `${position.trailPips.toFixed(0)} pips → Stop @ ${fmt(position.trailStop)}`;
+      $("trailAnchor").textContent = fmt(position.trailAnchor);
+    } else {
+      $("trailState").textContent = "OFF";
+      $("trailAnchor").textContent = "—";
+    }
+  }
+
+  // ===== Orders =====
+  function market(side) {
+    if (position) {
+      log(`⚠️ Already in a position. Exit first.`);
+      return;
+    }
+    const size = Number($("sizeInput").value || 0);
+    const slP = Number($("slInput").value || 0);
+    const tpP = Number($("tpInput").value || 0);
+    const trailP = Number($("trailInput").value || 0);
+
+    const { bid, ask } = bidAsk();
+    const fill = (side === "BUY") ? ask : bid; // buy at ask, sell at bid
+
+    let sl = 0, tp = 0;
+    if (slP > 0) sl = (side === "BUY") ? (fill - slP * pipSize) : (fill + slP * pipSize);
+    if (tpP > 0) tp = (side === "BUY") ? (fill + tpP * pipSize) : (fill - tpP * pipSize);
+
+    // Trailing: set initial anchor and stop based on the correct "closeable" price side
+    // BUY trails on BID (since you exit at bid), SELL trails on ASK
+    const trailAnchor = (side === "BUY") ? bid : ask;
+    const trailStop = (trailP > 0)
+      ? (side === "BUY")
+          ? (trailAnchor - trailP * pipSize)
+          : (trailAnchor + trailP * pipSize)
+      : 0;
+
+    position = {
+      side, entry: fill, size,
+      sl, tp,
+      openedAt: time,
+      trailPips: trailP,
+      trailStop,
+      trailAnchor
+    };
+
+    log(`✅ ${side} filled @ <b>${fmt(fill)}</b> | size ${size.toLocaleString()}`
+      + (slP?` | SL ${slP}p`:``)
+      + (tpP?` | TP ${tpP}p`:``)
+      + (trailP?` | TRAIL ${trailP}p`:``)
+    );
+
+    $("exitBtn").disabled = false;
+    $("exitBtn").classList.remove("disabled");
+    updatePositionUI();
+  }
+
+  function exitPosition(reason="Manual exit") {
+    if (!position) return;
+    const { bid, ask } = bidAsk();
+    const exitPx = (position.side === "BUY") ? bid : ask;
+
+    const plPips = (position.side === "BUY")
+      ? (exitPx - position.entry) / pipSize
+      : (position.entry - exitPx) / pipSize;
+
+    // Simple $ estimate (FOREX-ish): $10 per pip per 100,000 units on EURUSD
+    const dollarsPerPip = 10 * (position.size / 100000);
+    const pl$ = plPips * dollarsPerPip;
+
+    log(`🏁 EXIT @ <b>${fmt(exitPx)}</b> | P/L: <b>${plPips.toFixed(1)} pips</b> (~$${pl$.toFixed(2)}) | ${reason}`);
+    position = null;
+    updatePositionUI();
+  }
+
+  // ===== Trailing Stop Logic =====
+  function updateTrailingStop() {
+    if (!position || position.trailPips <= 0) return;
+
+    const { bid, ask } = bidAsk();
+    const closeable = (position.side === "BUY") ? bid : ask;
+
+    if (position.side === "BUY") {
+      // move anchor up if new higher bid
+      if (closeable > position.trailAnchor) {
+        position.trailAnchor = closeable;
+        position.trailStop = position.trailAnchor - position.trailPips * pipSize;
+      }
+    } else {
+      // SELL: move anchor down if new lower ask
+      if (closeable < position.trailAnchor) {
+        position.trailAnchor = closeable;
+        position.trailStop = position.trailAnchor + position.trailPips * pipSize;
+      }
+    }
+  }
+
+  function checkStops() {
+    if (!position) return;
+    const { bid, ask } = bidAsk();
+    const closeable = (position.side === "BUY") ? bid : ask;
+
+    // Regular SL/TP first (optional)
+    if (position.sl) {
+      if (position.side === "BUY" && closeable <= position.sl) return exitPosition("Stop Loss hit");
+      if (position.side === "SELL" && closeable >= position.sl) return exitPosition("Stop Loss hit");
+    }
+    if (position.tp) {
+      if (position.side === "BUY" && closeable >= position.tp) return exitPosition("Take Profit hit");
+      if (position.side === "SELL" && closeable <= position.tp) return exitPosition("Take Profit hit");
+    }
+
+    // Trailing stop (if enabled)
+    if (position && position.trailPips > 0) {
+      if (position.side === "BUY" && closeable <= position.trailStop) return exitPosition("Trailing Stop hit");
+      if (position.side === "SELL" && closeable >= position.trailStop) return exitPosition("Trailing Stop hit");
+    }
+  }
+
+  // ===== Candle building =====
+  function startNewCandle() {
+    currentCandle = { t: time, o: mid, h: mid, l: mid, c: mid };
+    candles.push(currentCandle);
+    if (candles.length > maxCandles) candles.shift();
+  }
+
+  function updateCandle() {
+    if (!currentCandle) startNewCandle();
+    currentCandle.h = Math.max(currentCandle.h, mid);
+    currentCandle.l = Math.min(currentCandle.l, mid);
+    currentCandle.c = mid;
+  }
+
+  // ===== Drawing =====
+  function draw() {
+    const W = canvas.width, H = canvas.height;
+    ctx.clearRect(0,0,W,H);
+
+    // Background grid
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = "rgba(255,255,255,0.06)";
+    ctx.lineWidth = 1;
+    for (let x=0; x<=W; x+=100){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+    for (let y=0; y<=H; y+=70){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+    if (candles.length < 5) return;
+
+    // Find visible min/max
+    let minP = Infinity, maxP = -Infinity;
+    for (const c of candles) {
+      minP = Math.min(minP, c.l);
+      maxP = Math.max(maxP, c.h);
+    }
+    // pad
+    const pad = (maxP - minP) * 0.15 + 6*pipSize;
+    minP -= pad; maxP += pad;
+
+    const py = (p) => {
+      const r = (p - minP) / (maxP - minP);
+      return H - r * (H-20) - 10;
+    };
+
+    // Draw candles
+    const cw = W / maxCandles;
+    const bodyW = cw * 0.55;
+
+    for (let i=0; i<candles.length; i++) {
+      const c = candles[i];
+      const x = i * cw + cw*0.5;
+
+      const yO = py(c.o), yC = py(c.c), yH = py(c.h), yL = py(c.l);
+
+      const up = c.c >= c.o;
+      // wick
+      ctx.strokeStyle = up ? "rgba(61,220,151,0.9)" : "rgba(255,92,122,0.9)";
+      ctx.beginPath(); ctx.moveTo(x, yH); ctx.lineTo(x, yL); ctx.stroke();
+
+      // body
+      const top = Math.min(yO, yC);
+      const bot = Math.max(yO, yC);
+      const bh = Math.max(2, bot - top);
+
+      ctx.fillStyle = up ? "rgba(61,220,151,0.35)" : "rgba(255,92,122,0.35)";
+      ctx.strokeStyle = up ? "rgba(61,220,151,0.9)" : "rgba(255,92,122,0.9)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.rect(x - bodyW/2, top, bodyW, bh);
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    // Current mid line
+    ctx.strokeStyle = "rgba(77,163,255,0.65)";
+    ctx.setLineDash([6,6]);
+    ctx.beginPath();
+    ctx.moveTo(0, py(mid));
+    ctx.lineTo(W, py(mid));
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Position lines
+    if (position) {
+      // entry
+      ctx.strokeStyle = "rgba(255,255,255,0.35)";
+      ctx.setLineDash([3,4]);
+      ctx.beginPath();
+      ctx.moveTo(0, py(position.entry));
+      ctx.lineTo(W, py(position.entry));
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // SL / TP
+      if (position.sl) {
+        ctx.strokeStyle = "rgba(255,92,122,0.55)";
+        ctx.beginPath(); ctx.moveTo(0, py(position.sl)); ctx.lineTo(W, py(position.sl)); ctx.stroke();
+      }
+      if (position.tp) {
+        ctx.strokeStyle = "rgba(61,220,151,0.55)";
+        ctx.beginPath(); ctx.moveTo(0, py(position.tp)); ctx.lineTo(W, py(position.tp)); ctx.stroke();
+      }
+
+      // Trailing stop
+      if (position.trailPips > 0 && position.trailStop) {
+        ctx.strokeStyle = "rgba(77,163,255,0.75)";
+        ctx.setLineDash([8,4]);
+        ctx.beginPath(); ctx.moveTo(0, py(position.trailStop)); ctx.lineTo(W, py(position.trailStop)); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+
+    // Labels
+    ctx.fillStyle = "rgba(255,255,255,0.8)";
+    ctx.font = "12px system-ui";
+    const { bid, ask } = bidAsk();
+    ctx.fillText(`Mid: ${fmt(mid)}  Bid: ${fmt(bid)}  Ask: ${fmt(ask)}`, 12, 18);
+    if (position && position.trailPips > 0) {
+      ctx.fillText(`Trailing: ${position.trailPips.toFixed(0)}p | Anchor: ${fmt(position.trailAnchor)} | Stop: ${fmt(position.trailStop)}`, 12, 36);
+    }
+  }
+
+  // ===== Simulation =====
+  function step() {
+    time += dt;
+
+    // Trend changes slowly
+    if (Math.random() < 0.03) trend += (Math.random() - 0.5) * (speedPps * pipSize) * 0.15;
+    trend = clamp(trend, -(speedPps*pipSize)*0.7, (speedPps*pipSize)*0.7);
+
+    const base = (speedPps * pipSize) * dt;
+    const wobble = (Math.random() - 0.5) * (vol * pipSize) * dt * 6;
+
+    // Market-ish direction
+    const dir = Math.sin(time * 0.8) * 0.5 + (Math.random() - 0.5) * 0.25;
+    mid += (base * dir) + trend * dt + wobble;
+
+    // Build candles
+    if (!currentCandle || (time - currentCandle.t) >= 1) startNewCandle();
+    updateCandle();
+
+    // Update trailing, then check exits
+    updateTrailingStop();
+    checkStops();
+
+    updatePositionUI();
+    draw();
+  }
+
+  // ===== Events =====
+  $("buyBtn").addEventListener("click", () => market("BUY"));
+  $("sellBtn").addEventListener("click", () => market("SELL"));
+  $("exitBtn").addEventListener("click", () => exitPosition("Manual exit"));
+
+  $("resetBtn").addEventListener("click", () => {
+    position = null;
+    candles = [];
+    currentCandle = null;
+    mid = 1.10000;
+    trend = 0;
+    time = 0;
+    $("log").innerHTML = "";
+    log("🔄 Reset done.");
+    updatePositionUI();
+  });
+
+  $("speedInput").addEventListener("input", (e) => {
+    speedPps = clamp(Number(e.target.value || 10), 1, 50);
+    updateTopPills();
+  });
+
+  $("spreadInput").addEventListener("input", (e) => {
+    spreadPips = clamp(Number(e.target.value || 1.2), 0, 5);
+    updateTopPills();
+  });
+
+  $("volInput").addEventListener("input", (e) => {
+    vol = clamp(Number(e.target.value || 2.5), 0, 10);
+  });
+
+  window.addEventListener("keydown", (e) => {
+    const k = e.key.toLowerCase();
+    if (k === "b") market("BUY");
+    if (k === "s") market("SELL");
+    if (k === "x") exitPosition("Hotkey exit");
+    if (k === "r") $("resetBtn").click();
+  });
+
+  // ===== Init =====
+  updateTopPills();
+  updatePositionUI();
+  log("Ready. Set Trail pips if you want, then click BUY/SELL.");
+  startNewCandle();
+  setInterval(step, 1000 / ticksPerSec);
+})();
+</script>
 </body>
 </html>

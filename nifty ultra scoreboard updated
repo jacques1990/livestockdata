@@ -1,19 +1,12 @@
 //@version=6
-indicator("Nifty Ultra Flow Indicator", overlay=true)
+indicator("Nifty Ultra Flow Indicator PRO", overlay=true)
 
 //--------------------------------------------------
 // SETTINGS
 //--------------------------------------------------
 threshold = input.float(0.30, "Stock Move % Threshold")
-buyLevel = input.float(35.0, "Bull Pressure Trigger")
-sellLevel = input.float(35.0, "Bear Pressure Trigger")
-
 emaFast = input.int(9, "Fast EMA")
 emaSlow = input.int(20, "Slow EMA")
-
-useNiftyFilter = input.bool(true, "Use Nifty Trend Filter")
-useBankFilter = input.bool(true, "Use Bank Nifty Filter")
-useVIXFilter = input.bool(true, "Use India VIX Filter")
 
 //--------------------------------------------------
 // STOCK WEIGHTS
@@ -72,85 +65,80 @@ lt_p = request.security("NSE:LT", timeframe.period, close[1])
 //--------------------------------------------------
 // % CHANGE
 //--------------------------------------------------
-pc_rel = rel_p != 0 ? (rel - rel_p) / rel_p * 100 : 0.0
-pc_hdfc = hdfc_p != 0 ? (hdfc - hdfc_p) / hdfc_p * 100 : 0.0
-pc_icici = icici_p != 0 ? (icici - icici_p) / icici_p * 100 : 0.0
-pc_tcs = tcs_p != 0 ? (tcs - tcs_p) / tcs_p * 100 : 0.0
-pc_infy = infy_p != 0 ? (infy - infy_p) / infy_p * 100 : 0.0
-pc_air = airtel_p != 0 ? (airtel - airtel_p) / airtel_p * 100 : 0.0
-pc_itc = itc_p != 0 ? (itc - itc_p) / itc_p * 100 : 0.0
-pc_axis = axis_p != 0 ? (axis - axis_p) / axis_p * 100 : 0.0
-pc_kotak = kotak_p != 0 ? (kotak - kotak_p) / kotak_p * 100 : 0.0
-pc_sbin = sbin_p != 0 ? (sbin - sbin_p) / sbin_p * 100 : 0.0
-pc_hcl = hcl_p != 0 ? (hcl - hcl_p) / hcl_p * 100 : 0.0
-pc_wipro = wipro_p != 0 ? (wipro - wipro_p) / wipro_p * 100 : 0.0
-pc_hul = hul_p != 0 ? (hul - hul_p) / hul_p * 100 : 0.0
-pc_lt = lt_p != 0 ? (lt - lt_p) / lt_p * 100 : 0.0
+pc_rel = (rel-rel_p)/rel_p*100
+pc_hdfc = (hdfc-hdfc_p)/hdfc_p*100
+pc_icici = (icici-icici_p)/icici_p*100
+pc_tcs = (tcs-tcs_p)/tcs_p*100
+pc_infy = (infy-infy_p)/infy_p*100
+pc_air = (airtel-airtel_p)/airtel_p*100
+pc_itc = (itc-itc_p)/itc_p*100
+pc_axis = (axis-axis_p)/axis_p*100
+pc_kotak = (kotak-kotak_p)/kotak_p*100
+pc_sbin = (sbin-sbin_p)/sbin_p*100
+pc_hcl = (hcl-hcl_p)/hcl_p*100
+pc_wipro = (wipro-wipro_p)/wipro_p*100
+pc_hul = (hul-hul_p)/hul_p*100
+pc_lt = (lt-lt_p)/lt_p*100
 
 //--------------------------------------------------
-// BULL PRESSURE PARTS
+// PRESSURE CALCULATION
 //--------------------------------------------------
-bp1 = pc_rel > threshold ? w_rel : 0.0
-bp2 = pc_hdfc > threshold ? w_hdfc : 0.0
-bp3 = pc_icici > threshold ? w_icici : 0.0
-bp4 = pc_tcs > threshold ? w_tcs : 0.0
-bp5 = pc_infy > threshold ? w_infy : 0.0
-bp6 = pc_air > threshold ? w_air : 0.0
-bp7 = pc_itc > threshold ? w_itc : 0.0
-bp8 = pc_axis > threshold ? w_axis : 0.0
-bp9 = pc_kotak > threshold ? w_kotak : 0.0
-bp10 = pc_sbin > threshold ? w_sbin : 0.0
-bp11 = pc_hcl > threshold ? w_hcl : 0.0
-bp12 = pc_wipro > threshold ? w_wipro : 0.0
-bp13 = pc_hul > threshold ? w_hul : 0.0
-bp14 = pc_lt > threshold ? w_lt : 0.0
+bullPressure = 0.0
+bearPressure = 0.0
 
-bullPressure = bp1 + bp2 + bp3 + bp4 + bp5 + bp6 + bp7 + bp8 + bp9 + bp10 + bp11 + bp12 + bp13 + bp14
+bullPressure += pc_rel > threshold ? w_rel : 0
+bullPressure += pc_hdfc > threshold ? w_hdfc : 0
+bullPressure += pc_icici > threshold ? w_icici : 0
+bullPressure += pc_tcs > threshold ? w_tcs : 0
+bullPressure += pc_infy > threshold ? w_infy : 0
+bullPressure += pc_air > threshold ? w_air : 0
+bullPressure += pc_itc > threshold ? w_itc : 0
+bullPressure += pc_axis > threshold ? w_axis : 0
+bullPressure += pc_kotak > threshold ? w_kotak : 0
+bullPressure += pc_sbin > threshold ? w_sbin : 0
+bullPressure += pc_hcl > threshold ? w_hcl : 0
+bullPressure += pc_wipro > threshold ? w_wipro : 0
+bullPressure += pc_hul > threshold ? w_hul : 0
+bullPressure += pc_lt > threshold ? w_lt : 0
 
-//--------------------------------------------------
-// BEAR PRESSURE PARTS
-//--------------------------------------------------
-sp1 = pc_rel < -threshold ? w_rel : 0.0
-sp2 = pc_hdfc < -threshold ? w_hdfc : 0.0
-sp3 = pc_icici < -threshold ? w_icici : 0.0
-sp4 = pc_tcs < -threshold ? w_tcs : 0.0
-sp5 = pc_infy < -threshold ? w_infy : 0.0
-sp6 = pc_air < -threshold ? w_air : 0.0
-sp7 = pc_itc < -threshold ? w_itc : 0.0
-sp8 = pc_axis < -threshold ? w_axis : 0.0
-sp9 = pc_kotak < -threshold ? w_kotak : 0.0
-sp10 = pc_sbin < -threshold ? w_sbin : 0.0
-sp11 = pc_hcl < -threshold ? w_hcl : 0.0
-sp12 = pc_wipro < -threshold ? w_wipro : 0.0
-sp13 = pc_hul < -threshold ? w_hul : 0.0
-sp14 = pc_lt < -threshold ? w_lt : 0.0
-
-bearPressure = sp1 + sp2 + sp3 + sp4 + sp5 + sp6 + sp7 + sp8 + sp9 + sp10 + sp11 + sp12 + sp13 + sp14
+bearPressure += pc_rel < -threshold ? w_rel : 0
+bearPressure += pc_hdfc < -threshold ? w_hdfc : 0
+bearPressure += pc_icici < -threshold ? w_icici : 0
+bearPressure += pc_tcs < -threshold ? w_tcs : 0
+bearPressure += pc_infy < -threshold ? w_infy : 0
+bearPressure += pc_air < -threshold ? w_air : 0
+bearPressure += pc_itc < -threshold ? w_itc : 0
+bearPressure += pc_axis < -threshold ? w_axis : 0
+bearPressure += pc_kotak < -threshold ? w_kotak : 0
+bearPressure += pc_sbin < -threshold ? w_sbin : 0
+bearPressure += pc_hcl < -threshold ? w_hcl : 0
+bearPressure += pc_wipro < -threshold ? w_wipro : 0
+bearPressure += pc_hul < -threshold ? w_hul : 0
+bearPressure += pc_lt < -threshold ? w_lt : 0
 
 //--------------------------------------------------
-// BULL / BEAR COUNT
+// COUNT
 //--------------------------------------------------
-bc1 = pc_rel > threshold ? 1 : 0
-bc2 = pc_hdfc > threshold ? 1 : 0
-bc3 = pc_icici > threshold ? 1 : 0
-bc4 = pc_tcs > threshold ? 1 : 0
-bc5 = pc_infy > threshold ? 1 : 0
-bc6 = pc_axis > threshold ? 1 : 0
-bc7 = pc_sbin > threshold ? 1 : 0
+bullCount =
+ (pc_rel>threshold?1:0)+
+ (pc_hdfc>threshold?1:0)+
+ (pc_icici>threshold?1:0)+
+ (pc_tcs>threshold?1:0)+
+ (pc_infy>threshold?1:0)+
+ (pc_axis>threshold?1:0)+
+ (pc_sbin>threshold?1:0)
 
-sc1 = pc_rel < -threshold ? 1 : 0
-sc2 = pc_hdfc < -threshold ? 1 : 0
-sc3 = pc_icici < -threshold ? 1 : 0
-sc4 = pc_tcs < -threshold ? 1 : 0
-sc5 = pc_infy < -threshold ? 1 : 0
-sc6 = pc_axis < -threshold ? 1 : 0
-sc7 = pc_sbin < -threshold ? 1 : 0
-
-bullCount = bc1 + bc2 + bc3 + bc4 + bc5 + bc6 + bc7
-bearCount = sc1 + sc2 + sc3 + sc4 + sc5 + sc6 + sc7
+bearCount =
+ (pc_rel<-threshold?1:0)+
+ (pc_hdfc<-threshold?1:0)+
+ (pc_icici<-threshold?1:0)+
+ (pc_tcs<-threshold?1:0)+
+ (pc_infy<-threshold?1:0)+
+ (pc_axis<-threshold?1:0)+
+ (pc_sbin<-threshold?1:0)
 
 //--------------------------------------------------
-// INDEX FILTERS
+// INDEX DATA
 //--------------------------------------------------
 nifty = request.security("NSE:NIFTY", timeframe.period, close)
 bank = request.security("NSE:BANKNIFTY", timeframe.period, close)
@@ -158,44 +146,58 @@ vix = request.security("NSE:INDIAVIX", timeframe.period, close)
 
 niftyFast = ta.ema(nifty, emaFast)
 niftySlow = ta.ema(nifty, emaSlow)
+
 bankFast = ta.ema(bank, emaFast)
 bankSlow = ta.ema(bank, emaSlow)
 
-niftyBull = nifty > niftyFast and niftyFast > niftySlow
-niftyBear = nifty < niftyFast and niftyFast < niftySlow
+niftyBull = nifty>niftyFast and niftyFast>niftySlow
+niftyBear = nifty<niftyFast and niftyFast<niftySlow
 
-bankBull = bank > bankFast and bankFast > bankSlow
-bankBear = bank < bankFast and bankFast < bankSlow
-
-vixBuy = vix < 16
-vixSell = vix > 14
+bankBull = bank>bankFast and bankFast>bankSlow
+bankBear = bank<bankFast and bankFast<bankSlow
 
 //--------------------------------------------------
-// SIGNAL LOGIC
+// EMA SLOPE
 //--------------------------------------------------
-rawBuy = bullPressure >= buyLevel and bullPressure > bearPressure and bullCount >= 4
-rawSell = bearPressure >= sellLevel and bearPressure > bullPressure and bearCount >= 4
+ema9 = ta.ema(close,9)
+ema20 = ta.ema(close,20)
 
-buySignal = rawBuy and (not useNiftyFilter or niftyBull) and (not useBankFilter or bankBull) and (not useVIXFilter or vixBuy)
-sellSignal = rawSell and (not useNiftyFilter or niftyBear) and (not useBankFilter or bankBear) and (not useVIXFilter or vixSell)
+ema9Slope = (ema9-ema9[3])/ema9*100
+ema20Slope = (ema20-ema20[3])/ema20*100
 
-newBuy = buySignal and not buySignal[1]
-newSell = sellSignal and not sellSignal[1]
+emaBull = ema9Slope>0 and ema20Slope>0
+emaBear = ema9Slope<0 and ema20Slope<0
+
+emaStrength =
+ emaBull ? math.min(math.abs(ema9Slope)*120,25) :
+ emaBear ? math.min(math.abs(ema9Slope)*120,25) :
+ 0
+
+flatMarket = math.abs(ema9Slope)<0.02 and math.abs(ema20Slope)<0.02
 
 //--------------------------------------------------
-// EARLY SIGNALS
+// BREADTH
 //--------------------------------------------------
-earlyBuy = bullPressure >= buyLevel * 0.75 and bullCount >= 3 and niftyBull
-earlySell = bearPressure >= sellLevel * 0.75 and bearCount >= 3 and niftyBear
+breadthBull = (niftyBull?1:0)+(bankBull?1:0)
+breadthBear = (niftyBear?1:0)+(bankBear?1:0)
 
 //--------------------------------------------------
-// PLOTS
+// SCORE
 //--------------------------------------------------
-plotshape(barstate.islast and newBuy, title="NIFTY BUY", location=location.belowbar, style=shape.labelup, color=color.green, text="BUY")
-plotshape(barstate.islast and newSell, title="NIFTY SELL", location=location.abovebar, style=shape.labeldown, color=color.red, text="SELL")
+bullScore = math.min(bullPressure*1.2,30) + bullCount*4 + breadthBull*10 + (emaBull?emaStrength:0)
+bearScore = math.min(bearPressure*1.2,30) + bearCount*4 + breadthBear*10 + (emaBear?emaStrength:0)
 
-plotshape(barstate.islast and not newBuy and earlyBuy, title="EARLY BUY", location=location.belowbar, style=shape.circle, color=color.lime, size=size.tiny)
-plotshape(barstate.islast and not newSell and earlySell, title="EARLY SELL", location=location.abovebar, style=shape.circle, color=color.maroon, size=size.tiny)
+bullScore := math.min(bullScore,100)
+bearScore := math.min(bearScore,100)
+
+//--------------------------------------------------
+// SIGNALS
+//--------------------------------------------------
+buySignal = bullScore>65 and niftyBull
+sellSignal = bearScore>65 and niftyBear
+
+plotshape(buySignal and barstate.islast,location=location.belowbar,color=color.green,style=shape.labelup,text="BUY")
+plotshape(sellSignal and barstate.islast,location=location.abovebar,color=color.red,style=shape.labeldown,text="SELL")
 
 //--------------------------------------------------
 // DASHBOARD TEXT
@@ -203,26 +205,28 @@ plotshape(barstate.islast and not newSell and earlySell, title="EARLY SELL", loc
 bias = bullPressure > bearPressure ? "Bullish" : bearPressure > bullPressure ? "Bearish" : "Neutral"
 mode = bullCount >= 4 and niftyBull and bankBull ? "Risk On" : bearCount >= 4 and niftyBear and bankBear ? "Risk Off" : "Mixed"
 
-//--------------------------------------------------
+///--------------------------------------------------
 // DASHBOARD
 //--------------------------------------------------
-var table dash = table.new(position.top_right, 2, 6, border_width=1)
+var table dash = table.new(position.top_center,3,6)
 
 if barstate.islast
-    table.cell(dash, 0, 0, "Bull Pressure")
-    table.cell(dash, 1, 0, str.tostring(bullPressure, "#.0"), text_color=color.green)
 
-    table.cell(dash, 0, 1, "Bear Pressure")
-    table.cell(dash, 1, 1, str.tostring(bearPressure, "#.0"), text_color=color.red)
+    table.cell(dash,0,0,"🟢 BULL",bgcolor=color.new(color.green,70),text_color=color.white)
+    table.cell(dash,2,0,"🔴 BEAR",bgcolor=color.new(color.red,70),text_color=color.white)
 
-    table.cell(dash, 0, 2, "Bull Count")
-    table.cell(dash, 1, 2, str.tostring(bullCount))
+    table.cell(dash,0,1,"Pressure "+str.tostring(bullPressure,"#.0"),bgcolor=bullPressure>0?color.lime:color.gray)
+    table.cell(dash,2,1,"Pressure "+str.tostring(bearPressure,"#.0"),bgcolor=bearPressure>0?color.red:color.gray)
 
-    table.cell(dash, 0, 3, "Bear Count")
-    table.cell(dash, 1, 3, str.tostring(bearCount))
+    table.cell(dash,0,2,"Breadth "+str.tostring(breadthBull))
+    table.cell(dash,2,2,"Breadth "+str.tostring(breadthBear))
 
-    table.cell(dash, 0, 4, "Mode")
-    table.cell(dash, 1, 4, mode)
+    table.cell(dash,0,3,"Count "+str.tostring(bullCount))
+    table.cell(dash,2,3,"Count "+str.tostring(bearCount))
 
-    table.cell(dash, 0, 5, "Bias")
-    table.cell(dash, 1, 5, bias)
+    table.cell(dash,0,4,"Score "+str.tostring(bullScore,"#.0")+"%",bgcolor=bullScore>55?color.lime:color.gray)
+    table.cell(dash,2,4,"Score "+str.tostring(bearScore,"#.0")+"%",bgcolor=bearScore>55?color.red:color.gray)
+
+    table.cell(dash,1,4,flatMarket?"NO TRADE":"",text_color=color.orange)
+
+    table.cell(dash,1,5,"VIX "+str.tostring(vix,"#.0"),text_color=color.yellow)

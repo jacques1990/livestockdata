@@ -1,0 +1,251 @@
+//@version=6
+indicator("US Ultra Flow Indicator - Mag7 + Breadth + EMA Score", overlay=true)
+
+//--------------------------------------------------
+// SETTINGS
+//--------------------------------------------------
+threshold = input.float(0.25, "Mag7 Move % Threshold", step=0.05)
+buyLevel = input.float(18.0, "Bull Pressure Trigger")
+sellLevel = input.float(18.0, "Bear Pressure Trigger")
+
+emaFastLen = input.int(9, "Fast EMA")
+emaSlowLen = input.int(20, "Slow EMA")
+
+showDashboard = input.bool(true, "Show Dashboard")
+
+//--------------------------------------------------
+// MAG7 WEIGHTS
+//--------------------------------------------------
+w_aapl = 7.0
+w_msft = 7.0
+w_nvda = 6.5
+w_amzn = 5.0
+w_googl = 4.5
+w_meta = 4.5
+w_tsla = 3.5
+
+//--------------------------------------------------
+// MAG7 DATA
+//--------------------------------------------------
+[aapl,aapl_p] = request.security("NASDAQ:AAPL", timeframe.period, [close,close[1]])
+[msft,msft_p] = request.security("NASDAQ:MSFT", timeframe.period, [close,close[1]])
+[nvda,nvda_p] = request.security("NASDAQ:NVDA", timeframe.period, [close,close[1]])
+[amzn,amzn_p] = request.security("NASDAQ:AMZN", timeframe.period, [close,close[1]])
+[googl,googl_p] = request.security("NASDAQ:GOOGL", timeframe.period, [close,close[1]])
+[meta,meta_p] = request.security("NASDAQ:META", timeframe.period, [close,close[1]])
+[tsla,tsla_p] = request.security("NASDAQ:TSLA", timeframe.period, [close,close[1]])
+
+//--------------------------------------------------
+// % CHANGE
+//--------------------------------------------------
+pc_aapl = (aapl-aapl_p)/aapl_p*100
+pc_msft = (msft-msft_p)/msft_p*100
+pc_nvda = (nvda-nvda_p)/nvda_p*100
+pc_amzn = (amzn-amzn_p)/amzn_p*100
+pc_googl = (googl-googl_p)/googl_p*100
+pc_meta = (meta-meta_p)/meta_p*100
+pc_tsla = (tsla-tsla_p)/tsla_p*100
+
+//--------------------------------------------------
+// BULL PRESSURE
+//--------------------------------------------------
+bp1 = pc_aapl > threshold ? w_aapl : 0
+bp2 = pc_msft > threshold ? w_msft : 0
+bp3 = pc_nvda > threshold ? w_nvda : 0
+bp4 = pc_amzn > threshold ? w_amzn : 0
+bp5 = pc_googl > threshold ? w_googl : 0
+bp6 = pc_meta > threshold ? w_meta : 0
+bp7 = pc_tsla > threshold ? w_tsla : 0
+
+bullPressure = bp1+bp2+bp3+bp4+bp5+bp6+bp7
+
+//--------------------------------------------------
+// BEAR PRESSURE
+//--------------------------------------------------
+sp1 = pc_aapl < -threshold ? w_aapl : 0
+sp2 = pc_msft < -threshold ? w_msft : 0
+sp3 = pc_nvda < -threshold ? w_nvda : 0
+sp4 = pc_amzn < -threshold ? w_amzn : 0
+sp5 = pc_googl < -threshold ? w_googl : 0
+sp6 = pc_meta < -threshold ? w_meta : 0
+sp7 = pc_tsla < -threshold ? w_tsla : 0
+
+bearPressure = sp1+sp2+sp3+sp4+sp5+sp6+sp7
+
+//--------------------------------------------------
+// COUNT
+//--------------------------------------------------
+bullCount =
+ (pc_aapl > threshold ? 1:0)+
+ (pc_msft > threshold ? 1:0)+
+ (pc_nvda > threshold ? 1:0)+
+ (pc_amzn > threshold ? 1:0)+
+ (pc_googl > threshold ? 1:0)+
+ (pc_meta > threshold ? 1:0)+
+ (pc_tsla > threshold ? 1:0)
+
+bearCount =
+ (pc_aapl < -threshold ? 1:0)+
+ (pc_msft < -threshold ? 1:0)+
+ (pc_nvda < -threshold ? 1:0)+
+ (pc_amzn < -threshold ? 1:0)+
+ (pc_googl < -threshold ? 1:0)+
+ (pc_meta < -threshold ? 1:0)+
+ (pc_tsla < -threshold ? 1:0)
+
+//--------------------------------------------------
+// MARKET ETF FILTERS
+//--------------------------------------------------
+spy = request.security("AMEX:SPY", timeframe.period, close)
+qqq = request.security("NASDAQ:QQQ", timeframe.period, close)
+iwm = request.security("AMEX:IWM", timeframe.period, close)
+soxx = request.security("NASDAQ:SOXX", timeframe.period, close)
+vix = request.security("CBOE:VIX", timeframe.period, close)
+
+spyFast = ta.ema(spy, emaFastLen)
+spySlow = ta.ema(spy, emaSlowLen)
+
+qqqFast = ta.ema(qqq, emaFastLen)
+qqqSlow = ta.ema(qqq, emaSlowLen)
+
+iwmFast = ta.ema(iwm, emaFastLen)
+iwmSlow = ta.ema(iwm, emaSlowLen)
+
+soxxFast = ta.ema(soxx, emaFastLen)
+soxxSlow = ta.ema(soxx, emaSlowLen)
+
+spyBull = spy>spyFast and spyFast>spySlow
+qqqBull = qqq>qqqFast and qqqFast>qqqSlow
+iwmBull = iwm>iwmFast and iwmFast>iwmSlow
+soxxBull = soxx>soxxFast and soxxFast>soxxSlow
+
+spyBear = spy<spyFast and spyFast<spySlow
+qqqBear = qqq<qqqFast and qqqFast<qqqSlow
+iwmBear = iwm<iwmFast and iwmFast<iwmSlow
+soxxBear = soxx<soxxFast and soxxFast<soxxSlow
+
+//--------------------------------------------------
+// BREADTH SCORE
+//--------------------------------------------------
+breadthBull =
+ (spyBull?1:0)+
+ (qqqBull?1:0)+
+ (iwmBull?1:0)+
+ (soxxBull?1:0)
+
+breadthBear =
+ (spyBear?1:0)+
+ (qqqBear?1:0)+
+ (iwmBear?1:0)+
+ (soxxBear?1:0)
+
+//--------------------------------------------------
+// EMA ANGLE LOGIC
+//--------------------------------------------------
+ema9 = ta.ema(close,9)
+ema20 = ta.ema(close,20)
+
+ema9Slope = ema9 - ema9[3]
+ema20Slope = ema20 - ema20[3]
+
+emaBull = ema9Slope > 0 and ema20Slope > 0
+emaBear = ema9Slope < 0 and ema20Slope < 0
+
+emaStrength =
+ emaBull ? math.min(math.abs(ema9Slope)*100,25) :
+ emaBear ? math.min(math.abs(ema9Slope)*100,25) :
+ 0
+
+flatMarket = math.abs(ema9Slope) < 0.02 and math.abs(ema20Slope) < 0.02
+
+//--------------------------------------------------
+// SCORE SYSTEM
+//--------------------------------------------------
+pressureScoreBull = math.min(bullPressure*2,25)
+pressureScoreBear = math.min(bearPressure*2,25)
+
+countScoreBull = bullCount * 3
+countScoreBear = bearCount * 3
+
+breadthScoreBull = breadthBull * 4
+breadthScoreBear = breadthBear * 4
+
+emaScoreBull = emaBull ? emaStrength : 0
+emaScoreBear = emaBear ? emaStrength : 0
+
+bullScore =
+ pressureScoreBull +
+ countScoreBull +
+ breadthScoreBull +
+ emaScoreBull
+
+bearScore =
+ pressureScoreBear +
+ countScoreBear +
+ breadthScoreBear +
+ emaScoreBear
+
+bullScore := math.min(bullScore,100)
+bearScore := math.min(bearScore,100)
+
+//--------------------------------------------------
+// SIGNAL LOGIC
+//--------------------------------------------------
+buySignal =
+ bullPressure>=buyLevel and
+ bullCount>=4 and
+ breadthBull>=2
+
+sellSignal =
+ bearPressure>=sellLevel and
+ bearCount>=4 and
+ breadthBear>=2
+
+//--------------------------------------------------
+// SIGNAL PLOT
+//--------------------------------------------------
+plotshape(barstate.islast and buySignal,
+ location=location.belowbar,
+ color=color.green,
+ style=shape.labelup,
+ text="ULTRA BUY")
+
+plotshape(barstate.islast and sellSignal,
+ location=location.abovebar,
+ color=color.red,
+ style=shape.labeldown,
+ text="ULTRA SELL")
+
+//--------------------------------------------------
+// DASHBOARD
+//--------------------------------------------------
+var table dash = table.new(position.top_center,3,6)
+
+bullPressureColor = bullPressure > 0 ? color.lime : color.new(color.gray,70)
+bullBreadthColor  = breadthBull > 0 ? color.lime : color.new(color.gray,70)
+bullCountColor    = bullCount > 0 ? color.lime : color.new(color.gray,70)
+
+bearPressureColor = bearPressure > 0 ? color.red : color.new(color.gray,70)
+bearBreadthColor  = breadthBear > 0 ? color.red : color.new(color.gray,70)
+bearCountColor    = bearCount > 0 ? color.red : color.new(color.gray,70)
+
+if barstate.islast and showDashboard
+
+    table.cell(dash,0,0,"🟢 BULL", bgcolor=color.new(color.green,70), text_color=color.white)
+    table.cell(dash,2,0,"🔴 BEAR", bgcolor=color.new(color.red,70), text_color=color.white)
+
+    table.cell(dash,0,1,"Pressure "+str.tostring(bullPressure,"#.0"), bgcolor=bullPressureColor, text_color=color.white)
+    table.cell(dash,2,1,"Pressure "+str.tostring(bearPressure,"#.0"), bgcolor=bearPressureColor, text_color=color.white)
+
+    table.cell(dash,0,2,"Breadth "+str.tostring(breadthBull), bgcolor=bullBreadthColor, text_color=color.white)
+    table.cell(dash,2,2,"Breadth "+str.tostring(breadthBear), bgcolor=bearBreadthColor, text_color=color.white)
+
+    table.cell(dash,0,3,"Count "+str.tostring(bullCount), bgcolor=bullCountColor, text_color=color.white)
+    table.cell(dash,2,3,"Count "+str.tostring(bearCount), bgcolor=bearCountColor, text_color=color.white)
+
+    table.cell(dash,0,4,"Score "+str.tostring(bullScore,"#.0")+"%", bgcolor=bullScore>50?color.lime:color.new(color.gray,70), text_color=color.white)
+    table.cell(dash,2,4,"Score "+str.tostring(bearScore,"#.0")+"%", bgcolor=bearScore>50?color.red:color.new(color.gray,70), text_color=color.white)
+
+    table.cell(dash,1,4,flatMarket?"NO TRADE":"", text_color=color.orange)
+
+    table.cell(dash,1,5,"VIX "+str.tostring(vix,"#.00"), text_color=color.yellow)

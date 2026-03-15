@@ -1,0 +1,240 @@
+//@version=6
+strategy("Nifty Ultra Flow Score Strategy v2", overlay=true,
+ initial_capital=100000,
+ default_qty_type=strategy.percent_of_equity,
+ default_qty_value=10)
+
+//--------------------------------------------------
+// SETTINGS
+//--------------------------------------------------
+threshold = input.float(0.30, "Stock Move % Threshold")
+scoreTrigger = input.int(35, "Score Entry Level")
+slopeFilter = input.float(0.05, "EMA Slope Filter")
+
+stopLossPct = input.float(0.5, "Stop Loss %")
+takeProfitPct = input.float(1.0, "Take Profit %")
+
+emaFast = input.int(9)
+emaSlow = input.int(20)
+
+//--------------------------------------------------
+// STOCK WEIGHTS
+//--------------------------------------------------
+w_rel = 11.0
+w_hdfc = 10.0
+w_icici = 8.0
+w_tcs = 6.0
+w_infy = 7.0
+w_air = 5.0
+w_itc = 4.0
+w_axis = 4.5
+w_kotak = 3.5
+w_sbin = 3.2
+w_hcl = 3.0
+w_wipro = 2.5
+w_hul = 2.8
+w_lt = 2.7
+
+//--------------------------------------------------
+// STOCK DATA
+//--------------------------------------------------
+rel = request.security("NSE:RELIANCE", timeframe.period, close)
+hdfc = request.security("NSE:HDFCBANK", timeframe.period, close)
+icici = request.security("NSE:ICICIBANK", timeframe.period, close)
+tcs = request.security("NSE:TCS", timeframe.period, close)
+infy = request.security("NSE:INFY", timeframe.period, close)
+air = request.security("NSE:BHARTIARTL", timeframe.period, close)
+itc = request.security("NSE:ITC", timeframe.period, close)
+axis = request.security("NSE:AXISBANK", timeframe.period, close)
+kotak = request.security("NSE:KOTAKBANK", timeframe.period, close)
+sbin = request.security("NSE:SBIN", timeframe.period, close)
+hcl = request.security("NSE:HCLTECH", timeframe.period, close)
+wipro = request.security("NSE:WIPRO", timeframe.period, close)
+hul = request.security("NSE:HINDUNILVR", timeframe.period, close)
+lt = request.security("NSE:LT", timeframe.period, close)
+
+//--------------------------------------------------
+// PREVIOUS CLOSE
+//--------------------------------------------------
+rel_p = request.security("NSE:RELIANCE", timeframe.period, close[1])
+hdfc_p = request.security("NSE:HDFCBANK", timeframe.period, close[1])
+icici_p = request.security("NSE:ICICIBANK", timeframe.period, close[1])
+tcs_p = request.security("NSE:TCS", timeframe.period, close[1])
+infy_p = request.security("NSE:INFY", timeframe.period, close[1])
+air_p = request.security("NSE:BHARTIARTL", timeframe.period, close[1])
+itc_p = request.security("NSE:ITC", timeframe.period, close[1])
+axis_p = request.security("NSE:AXISBANK", timeframe.period, close[1])
+kotak_p = request.security("NSE:KOTAKBANK", timeframe.period, close[1])
+sbin_p = request.security("NSE:SBIN", timeframe.period, close[1])
+hcl_p = request.security("NSE:HCLTECH", timeframe.period, close[1])
+wipro_p = request.security("NSE:WIPRO", timeframe.period, close[1])
+hul_p = request.security("NSE:HINDUNILVR", timeframe.period, close[1])
+lt_p = request.security("NSE:LT", timeframe.period, close[1])
+
+//--------------------------------------------------
+// % CHANGE
+//--------------------------------------------------
+pc_rel = (rel-rel_p)/rel_p*100
+pc_hdfc = (hdfc-hdfc_p)/hdfc_p*100
+pc_icici = (icici-icici_p)/icici_p*100
+pc_tcs = (tcs-tcs_p)/tcs_p*100
+pc_infy = (infy-infy_p)/infy_p*100
+pc_air = (air-air_p)/air_p*100
+pc_itc = (itc-itc_p)/itc_p*100
+pc_axis = (axis-axis_p)/axis_p*100
+pc_kotak = (kotak-kotak_p)/kotak_p*100
+pc_sbin = (sbin-sbin_p)/sbin_p*100
+pc_hcl = (hcl-hcl_p)/hcl_p*100
+pc_wipro = (wipro-wipro_p)/wipro_p*100
+pc_hul = (hul-hul_p)/hul_p*100
+pc_lt = (lt-lt_p)/lt_p*100
+
+//--------------------------------------------------
+// PRESSURE
+//--------------------------------------------------
+bullPressure =
+ (pc_rel>threshold?w_rel:0)+
+ (pc_hdfc>threshold?w_hdfc:0)+
+ (pc_icici>threshold?w_icici:0)+
+ (pc_tcs>threshold?w_tcs:0)+
+ (pc_infy>threshold?w_infy:0)+
+ (pc_air>threshold?w_air:0)+
+ (pc_itc>threshold?w_itc:0)+
+ (pc_axis>threshold?w_axis:0)+
+ (pc_kotak>threshold?w_kotak:0)+
+ (pc_sbin>threshold?w_sbin:0)+
+ (pc_hcl>threshold?w_hcl:0)+
+ (pc_wipro>threshold?w_wipro:0)+
+ (pc_hul>threshold?w_hul:0)+
+ (pc_lt>threshold?w_lt:0)
+
+bearPressure =
+ (pc_rel<-threshold?w_rel:0)+
+ (pc_hdfc<-threshold?w_hdfc:0)+
+ (pc_icici<-threshold?w_icici:0)+
+ (pc_tcs<-threshold?w_tcs:0)+
+ (pc_infy<-threshold?w_infy:0)+
+ (pc_air<-threshold?w_air:0)+
+ (pc_itc<-threshold?w_itc:0)+
+ (pc_axis<-threshold?w_axis:0)+
+ (pc_kotak<-threshold?w_kotak:0)+
+ (pc_sbin<-threshold?w_sbin:0)+
+ (pc_hcl<-threshold?w_hcl:0)+
+ (pc_wipro<-threshold?w_wipro:0)+
+ (pc_hul<-threshold?w_hul:0)+
+ (pc_lt<-threshold?w_lt:0)
+
+//--------------------------------------------------
+// COUNT
+//--------------------------------------------------
+bullCount =
+ (pc_rel>threshold?1:0)+
+ (pc_hdfc>threshold?1:0)+
+ (pc_icici>threshold?1:0)+
+ (pc_tcs>threshold?1:0)+
+ (pc_infy>threshold?1:0)
+
+bearCount =
+ (pc_rel<-threshold?1:0)+
+ (pc_hdfc<-threshold?1:0)+
+ (pc_icici<-threshold?1:0)+
+ (pc_tcs<-threshold?1:0)+
+ (pc_infy<-threshold?1:0)
+
+//--------------------------------------------------
+// INDEX BREADTH
+//--------------------------------------------------
+nifty = request.security("NSE:NIFTY", timeframe.period, close)
+bank = request.security("NSE:BANKNIFTY", timeframe.period, close)
+
+niftyBull = ta.ema(nifty,emaFast) > ta.ema(nifty,emaSlow)
+niftyBear = ta.ema(nifty,emaFast) < ta.ema(nifty,emaSlow)
+
+bankBull = ta.ema(bank,emaFast) > ta.ema(bank,emaSlow)
+bankBear = ta.ema(bank,emaFast) < ta.ema(bank,emaSlow)
+
+breadthBull = (niftyBull?1:0)+(bankBull?1:0)
+breadthBear = (niftyBear?1:0)+(bankBear?1:0)
+
+//--------------------------------------------------
+// EMA TREND + SLOPE
+//--------------------------------------------------
+ema9 = ta.ema(close,9)
+ema20 = ta.ema(close,20)
+
+emaBull = ema9>ema20
+emaBear = ema9<ema20
+
+ema9Slope = (ema9-ema9[3])/ema9*100
+//trendStrong = math.abs(ema9Slope) > slopeFilter
+bullSlope = ema9Slope > slopeFilter
+bearSlope = ema9Slope < -slopeFilter
+
+//--------------------------------------------------
+// SCORE
+//--------------------------------------------------
+bullScore = math.min(bullPressure*1.2,30)+bullCount*4+breadthBull*10+(emaBull?15:0)
+bearScore = math.min(bearPressure*1.2,30)+bearCount*4+breadthBear*10+(emaBear?15:0)
+
+//--------------------------------------------------
+// ENTRY CONDITIONS
+//--------------------------------------------------
+//longCondition =
+// bullScore >= scoreTrigger and
+ //emaBull and
+ //trendStrong
+
+//shortCondition =
+ //bearScore >= scoreTrigger and
+ //emaBear and
+ //trendStrong
+
+longCondition =
+ bullScore >= scoreTrigger and
+ emaBull and
+ bullSlope
+
+shortCondition =
+ bearScore >= scoreTrigger and
+ emaBear and
+ bearSlope
+
+//--------------------------------------------------
+// STRATEGY ORDERS
+//--------------------------------------------------
+if longCondition
+    strategy.entry("LONG", strategy.long)
+
+if shortCondition
+    strategy.entry("SHORT", strategy.short)
+
+//--------------------------------------------------
+// EXIT RULES
+//--------------------------------------------------
+strategy.exit("Exit Long",
+ from_entry="LONG",
+ stop=close*(1-stopLossPct/100),
+ limit=close*(1+takeProfitPct/100))
+
+strategy.exit("Exit Short",
+ from_entry="SHORT",
+ stop=close*(1+stopLossPct/100),
+ limit=close*(1-takeProfitPct/100))
+
+
+
+//NOTES 
+//3MINUTE TIME FRAME
+//Stock Move % Threshold: 0.25
+
+//Score Entry Level: 33
+
+//EMA Slope Filter: 0.11
+
+//Stop Loss %: 1.8
+
+//Take Profit %: 0.8
+
+//EmaFast: 9
+
+//EmaSlow: 20

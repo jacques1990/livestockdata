@@ -324,16 +324,10 @@ getText(sig) =>
 
 // Angle label helper
 angleLabel() =>
-    longSignal  ? "LB" :
-    shortSignal ? "LS" :
-    exSignal    ? "EX" :
-    dontTrade   ? "DT" : "--"
+    longSignal ? "LB" : shortSignal ? "LS" : exSignal ? "EX" : dontTrade ? "DT" : "--"
 
 angleColor() =>
-    longSignal  ? color.green  :
-    shortSignal ? color.red    :
-    exSignal    ? color.orange :
-    dontTrade   ? color.gray   : color.gray
+    longSignal ? color.green : shortSignal ? color.red : exSignal ? color.orange : color.gray
 
 var table dash = table.new(position.top_right, 4, 9, border_width=1)
 

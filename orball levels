@@ -1,0 +1,355 @@
+//@version=5
+indicator(
+     "Multi Night ORB — 5m / 10m / 15m / 30m / 1H",
+     overlay=true,
+     max_labels_count=50)
+
+// ===== Inputs =====
+sess     = input.session("2000-1700", "Trading session")
+timeZone = input.string("America/New_York", "Time zone")
+
+labelOffset  = input.int(3, "First label distance", minval=1, maxval=100)
+labelSpacing = input.int(5, "Space between labels", minval=2, maxval=20)
+
+show5m  = input.bool(true, "Show 5-minute ORB")
+show10m = input.bool(true, "Show 10-minute ORB")
+show15m = input.bool(true, "Show 15-minute ORB")
+show30m = input.bool(true, "Show 30-minute ORB")
+show60m = input.bool(true, "Show 1-hour ORB")
+
+showVWAP = input.bool(true, "Show session VWAP")
+
+// ===== Session Detection =====
+inSess = not na(time(timeframe.period, sess, timeZone))
+
+// First chart bar of each new session
+newSession =
+     inSess and
+     (na(inSess[1]) or not inSess[1])
+
+var int sessStart = na
+
+if newSession
+    sessStart := time
+
+// Clear the session starting time after the session ends
+if not inSess
+    sessStart := na
+
+// ===== ORB Durations =====
+fiveMinMs    = 5 * 60 * 1000
+tenMinMs     = 10 * 60 * 1000
+fifteenMinMs = 15 * 60 * 1000
+thirtyMinMs  = 30 * 60 * 1000
+oneHourMs    = 60 * 60 * 1000
+
+elapsedTime =
+     inSess and not na(sessStart) ?
+     time - sessStart :
+     na
+
+in5mWindow =
+     inSess and
+     not na(elapsedTime) and
+     elapsedTime < fiveMinMs
+
+in10mWindow =
+     inSess and
+     not na(elapsedTime) and
+     elapsedTime < tenMinMs
+
+in15mWindow =
+     inSess and
+     not na(elapsedTime) and
+     elapsedTime < fifteenMinMs
+
+in30mWindow =
+     inSess and
+     not na(elapsedTime) and
+     elapsedTime < thirtyMinMs
+
+in60mWindow =
+     inSess and
+     not na(elapsedTime) and
+     elapsedTime < oneHourMs
+
+// ===== ORB Variables =====
+var float orb5High  = na
+var float orb5Low   = na
+
+var float orb10High = na
+var float orb10Low  = na
+
+var float orb15High = na
+var float orb15Low  = na
+
+var float orb30High = na
+var float orb30Low  = na
+
+var float orb60High = na
+var float orb60Low  = na
+
+// ===== Reset at New Session =====
+if newSession
+    orb5High  := na
+    orb5Low   := na
+
+    orb10High := na
+    orb10Low  := na
+
+    orb15High := na
+    orb15Low  := na
+
+    orb30High := na
+    orb30Low  := na
+
+    orb60High := na
+    orb60Low  := na
+
+// ===== Calculate 5-Minute ORB =====
+if in5mWindow
+    orb5High := na(orb5High) ? high : math.max(orb5High, high)
+    orb5Low  := na(orb5Low) ? low : math.min(orb5Low, low)
+
+// ===== Calculate 10-Minute ORB =====
+if in10mWindow
+    orb10High := na(orb10High) ? high : math.max(orb10High, high)
+    orb10Low  := na(orb10Low) ? low : math.min(orb10Low, low)
+
+// ===== Calculate 15-Minute ORB =====
+if in15mWindow
+    orb15High := na(orb15High) ? high : math.max(orb15High, high)
+    orb15Low  := na(orb15Low) ? low : math.min(orb15Low, low)
+
+// ===== Calculate 30-Minute ORB =====
+if in30mWindow
+    orb30High := na(orb30High) ? high : math.max(orb30High, high)
+    orb30Low  := na(orb30Low) ? low : math.min(orb30Low, low)
+
+// ===== Calculate 1-Hour ORB =====
+if in60mWindow
+    orb60High := na(orb60High) ? high : math.max(orb60High, high)
+    orb60Low  := na(orb60Low) ? low : math.min(orb60Low, low)
+
+// ===== Session-Anchored VWAP =====
+[vwapValue, vwapUpper1, vwapLower1] =
+     ta.vwap(hlc3, newSession, 1)
+
+plot(
+     showVWAP and inSess ? vwapValue : na,
+     title="VWAP",
+     color=color.yellow,
+     linewidth=2)
+
+plot(
+     showVWAP and inSess ? vwapUpper1 : na,
+     title="VWAP +1σ",
+     color=color.new(color.teal, 60),
+     linewidth=1)
+
+plot(
+     showVWAP and inSess ? vwapLower1 : na,
+     title="VWAP -1σ",
+     color=color.new(color.teal, 60),
+     linewidth=1)
+
+// ===== ORB Lines =====
+plot(
+     show5m and inSess ? orb5High : na,
+     title="5m ORB Top",
+     color=color.lime,
+     linewidth=2)
+
+plot(
+     show5m and inSess ? orb5Low : na,
+     title="5m ORB Bottom",
+     color=color.lime,
+     linewidth=2)
+
+plot(
+     show10m and inSess ? orb10High : na,
+     title="10m ORB Top",
+     color=color.aqua,
+     linewidth=2)
+
+plot(
+     show10m and inSess ? orb10Low : na,
+     title="10m ORB Bottom",
+     color=color.aqua,
+     linewidth=2)
+
+plot(
+     show15m and inSess ? orb15High : na,
+     title="15m ORB Top",
+     color=color.blue,
+     linewidth=2)
+
+plot(
+     show15m and inSess ? orb15Low : na,
+     title="15m ORB Bottom",
+     color=color.blue,
+     linewidth=2)
+
+plot(
+     show30m and inSess ? orb30High : na,
+     title="30m ORB Top",
+     color=color.orange,
+     linewidth=2)
+
+plot(
+     show30m and inSess ? orb30Low : na,
+     title="30m ORB Bottom",
+     color=color.orange,
+     linewidth=2)
+
+plot(
+     show60m and inSess ? orb60High : na,
+     title="1H ORB Top",
+     color=color.fuchsia,
+     linewidth=2)
+
+plot(
+     show60m and inSess ? orb60Low : na,
+     title="1H ORB Bottom",
+     color=color.fuchsia,
+     linewidth=2)
+
+// ===== Tiny Side-by-Side Labels =====
+var label label5High  = na
+var label label5Low   = na
+
+var label label10High = na
+var label label10Low  = na
+
+var label label15High = na
+var label label15Low  = na
+
+var label label30High = na
+var label label30Low  = na
+
+var label label60High = na
+var label label60Low  = na
+
+if barstate.islast
+    // Delete old labels before drawing updated labels
+    label.delete(label5High)
+    label.delete(label5Low)
+
+    label.delete(label10High)
+    label.delete(label10Low)
+
+    label.delete(label15High)
+    label.delete(label15Low)
+
+    label.delete(label30High)
+    label.delete(label30Low)
+
+    label.delete(label60High)
+    label.delete(label60Low)
+
+    // Separate horizontal columns
+    int x5  = bar_index + labelOffset
+    int x10 = x5 + labelSpacing
+    int x15 = x10 + labelSpacing
+    int x30 = x15 + labelSpacing
+    int x60 = x30 + labelSpacing
+
+    // 5-minute labels
+    if show5m and inSess and not na(orb5High)
+        label5High := label.new(
+             x=x5,
+             y=orb5High,
+             text="5m T",
+             style=label.style_label_left,
+             color=color.lime,
+             textcolor=color.black,
+             size=size.tiny)
+
+        label5Low := label.new(
+             x=x5,
+             y=orb5Low,
+             text="5m B",
+             style=label.style_label_left,
+             color=color.lime,
+             textcolor=color.black,
+             size=size.tiny)
+
+    // 10-minute labels
+    if show10m and inSess and not na(orb10High)
+        label10High := label.new(
+             x=x10,
+             y=orb10High,
+             text="10m T",
+             style=label.style_label_left,
+             color=color.aqua,
+             textcolor=color.black,
+             size=size.tiny)
+
+        label10Low := label.new(
+             x=x10,
+             y=orb10Low,
+             text="10m B",
+             style=label.style_label_left,
+             color=color.aqua,
+             textcolor=color.black,
+             size=size.tiny)
+
+    // 15-minute labels
+    if show15m and inSess and not na(orb15High)
+        label15High := label.new(
+             x=x15,
+             y=orb15High,
+             text="15m T",
+             style=label.style_label_left,
+             color=color.blue,
+             textcolor=color.white,
+             size=size.tiny)
+
+        label15Low := label.new(
+             x=x15,
+             y=orb15Low,
+             text="15m B",
+             style=label.style_label_left,
+             color=color.blue,
+             textcolor=color.white,
+             size=size.tiny)
+
+    // 30-minute labels
+    if show30m and inSess and not na(orb30High)
+        label30High := label.new(
+             x=x30,
+             y=orb30High,
+             text="30m T",
+             style=label.style_label_left,
+             color=color.orange,
+             textcolor=color.black,
+             size=size.tiny)
+
+        label30Low := label.new(
+             x=x30,
+             y=orb30Low,
+             text="30m B",
+             style=label.style_label_left,
+             color=color.orange,
+             textcolor=color.black,
+             size=size.tiny)
+
+    // 1-hour labels
+    if show60m and inSess and not na(orb60High)
+        label60High := label.new(
+             x=x60,
+             y=orb60High,
+             text="1H T",
+             style=label.style_label_left,
+             color=color.fuchsia,
+             textcolor=color.white,
+             size=size.tiny)
+
+        label60Low := label.new(
+             x=x60,
+             y=orb60Low,
+             text="1H B",
+             style=label.style_label_left,
+             color=color.fuchsia,
+             textcolor=color.white,
+             size=size.tiny)

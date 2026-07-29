@@ -1,0 +1,989 @@
+//@version=6
+indicator("MTF Dashboard + S/R Zones + EMA Angle System + FVG + ORB", overlay=true, max_lines_count=500, max_boxes_count=250, max_labels_count=200)
+
+// ============================================================
+//  SECTION 1 — INPUTS
+// ============================================================
+
+step = input.int(50, "Strike Step", group="MTF Dashboard")
+
+pivotStrength = input.int(2,      "Pivot Strength",   group="S/R Zones")
+zonePercent   = input.float(0.30, "Zone Width %",     group="S/R Zones")
+extendBars    = input.int(80,     "Zone Extend Bars", group="S/R Zones")
+maxSRZones    = input.int(10,     "Max S/R Zones (per side)", group="S/R Zones", minval=3, maxval=30)
+
+emaFastLen    = input.int(9,      "EMA Fast Length",          group="EMA Angle")
+emaSlowLen    = input.int(20,     "EMA Slow Length",          group="EMA Angle")
+slopeLookback = input.int(6,      "Slope Lookback",           group="EMA Angle")
+atrLen        = input.int(14,     "ATR Length",               group="EMA Angle")
+minSlopeATR   = input.float(0.05, "Min Slope (ATR mult)",     group="EMA Angle", step=0.01)
+cooldownBars  = input.int(8,      "Cooldown After EMA Cross", group="EMA Angle", minval=0)
+
+fvgShowBull       = input.bool(true,        "Show Bullish FVG",                      group="Fair Value Gap")
+fvgShowBear       = input.bool(true,        "Show Bearish FVG",                      group="Fair Value Gap")
+fvgExtendBars     = input.int(150,          "Extend (bars)", minval=1, maxval=500,    group="Fair Value Gap")
+fvgDeleteFill     = input.bool(true,        "Delete When Filled",                    group="Fair Value Gap")
+fvgBullColor      = input.color(color.lime, "Bullish Zone Color",                    group="Fair Value Gap")
+fvgBearColor      = input.color(color.red,  "Bearish Zone Color",                    group="Fair Value Gap")
+fvgBullShadeTrans = input.int(85, "Bullish Transparency (0-100)", minval=0, maxval=100, group="Fair Value Gap")
+fvgBearShadeTrans = input.int(85, "Bearish Transparency (0-100)", minval=0, maxval=100, group="Fair Value Gap")
+fvgShowBorder     = input.bool(true,        "Show Zone Border",                      group="Fair Value Gap")
+fvgBorderTrans    = input.int(40, "Border Transparency (0-100)",  minval=0, maxval=100, group="Fair Value Gap")
+fvgMaxActive      = input.int(50, "Maximum Active FVGs (per side)", minval=5, maxval=100, group="Fair Value Gap")
+
+rsiLen      = input.int(14, "RSI Length",           group="RSI State")
+rsiOBLevel  = input.int(70, "Overbought Level",     group="RSI State")
+rsiOSLevel  = input.int(30, "Oversold Level",       group="RSI State")
+rsiBullZone = input.int(55, "Bullish Zone (above)", group="RSI State")
+rsiBearZone = input.int(45, "Bearish Zone (below)", group="RSI State")
+
+macdFastLen = input.int(12, "MACD Fast Length",   group="MACD State")
+macdSlowLen = input.int(26, "MACD Slow Length",   group="MACD State")
+macdSigLen  = input.int(9,  "MACD Signal Length", group="MACD State")
+
+klShowDH    = input.bool(true,  "Show Daily High",         group="Key Levels")
+klShowDL    = input.bool(true,  "Show Daily Low",          group="Key Levels")
+klShowPDH   = input.bool(true,  "Show Prev Day High",      group="Key Levels")
+klShowPDL   = input.bool(true,  "Show Prev Day Low",       group="Key Levels")
+klShowWH    = input.bool(true,  "Show Weekly High",        group="Key Levels")
+klShowWL    = input.bool(true,  "Show Weekly Low",         group="Key Levels")
+klShowMH    = input.bool(true,  "Show Monthly High",       group="Key Levels")
+klShowML    = input.bool(true,  "Show Monthly Low",        group="Key Levels")
+klShow20H   = input.bool(true,  "Show 20D High",           group="Key Levels")
+klShow20L   = input.bool(true,  "Show 20D Low",            group="Key Levels")
+klShow30H   = input.bool(true,  "Show 30D High",           group="Key Levels")
+klShow30L   = input.bool(true,  "Show 30D Low",            group="Key Levels")
+klShow50H   = input.bool(true,  "Show 50D High",           group="Key Levels")
+klShow50L   = input.bool(true,  "Show 50D Low",            group="Key Levels")
+klExtend    = input.int(100,    "Label Extend (bars)",     group="Key Levels", minval=1)
+klLabelStart = input.int(2,     "First Label Distance",    group="Key Levels", minval=0, maxval=50)
+klLabelSpace = input.int(3,     "Space Between Labels",    group="Key Levels", minval=1, maxval=20)
+klDHColor   = input.color(color.new(color.yellow,  0),  "Daily High/Low Color", group="Key Levels")
+klPDColor   = input.color(color.new(color.orange,  0),  "Prev Day Color",       group="Key Levels")
+klWColor    = input.color(color.new(color.aqua,    0),  "Weekly Color",         group="Key Levels")
+klMColor    = input.color(color.new(color.fuchsia, 0),  "Monthly Color",        group="Key Levels")
+kl20Color   = input.color(color.new(color.lime,    0),  "20D Range Color",      group="Key Levels")
+kl30Color   = input.color(color.new(color.silver,  0),  "30D Range Color",      group="Key Levels")
+kl50Color   = input.color(color.new(color.teal,    0),  "50D Range Color",      group="Key Levels")
+
+// ---- ORB (Opening Range Breakout) Dashboard Inputs ----
+orbPeriodSel = input.string("15 Min", "ORB Period", options=["5 Min", "15 Min", "30 Min", "1 Hour"], group="ORB Dashboard")
+orbShowTable = input.bool(true, "Show ORB Table", group="ORB Dashboard")
+orbTablePos  = input.string("Bottom Right", "Table Position", options=["Top Left", "Top Right", "Bottom Left", "Bottom Right"], group="ORB Dashboard")
+orbTextSize  = input.string("Small", "Table Text Size", options=["Tiny", "Small", "Normal"], group="ORB Dashboard")
+
+orbSymSPY   = input.symbol("SPY",   "Symbol 1 — Index",     group="ORB Dashboard")
+orbSymQQQ   = input.symbol("QQQ",   "Symbol 2 — Index",     group="ORB Dashboard")
+orbSymAAPL  = input.symbol("AAPL",  "Symbol 3 — Mag 7",     group="ORB Dashboard")
+orbSymMSFT  = input.symbol("MSFT",  "Symbol 4 — Mag 7",     group="ORB Dashboard")
+orbSymGOOGL = input.symbol("GOOGL", "Symbol 5 — Mag 7",     group="ORB Dashboard")
+orbSymAMZN  = input.symbol("AMZN",  "Symbol 6 — Mag 7",     group="ORB Dashboard")
+orbSymNVDA  = input.symbol("NVDA",  "Symbol 7 — Mag 7",     group="ORB Dashboard")
+orbSymMETA  = input.symbol("META",  "Symbol 8 — Mag 7",     group="ORB Dashboard")
+orbSymTSLA  = input.symbol("TSLA",  "Symbol 9 — Mag 7",     group="ORB Dashboard")
+
+orbSymNQ    = input.symbol("CME_MINI:NQ1!",  "Symbol 10 — E-mini Nasdaq Futures", group="ORB Dashboard")
+orbSymES    = input.symbol("CME_MINI:ES1!",  "Symbol 11 — E-mini S&P Futures",    group="ORB Dashboard")
+orbSymYM    = input.symbol("CBOT_MINI:YM1!", "Symbol 12 — E-mini Dow Futures",    group="ORB Dashboard")
+orbSymMNQ   = input.symbol("CME_MINI:MNQ1!", "Symbol 13 — Micro Nasdaq Futures",  group="ORB Dashboard")
+orbSymMES   = input.symbol("CME_MINI:MES1!", "Symbol 14 — Micro S&P Futures",     group="ORB Dashboard")
+orbSymMYM   = input.symbol("CBOT_MINI:MYM1!","Symbol 15 — Micro Dow Futures",     group="ORB Dashboard")
+
+orbShowExtra = input.bool(false, "Show Extra Symbol (Optional)", group="ORB Dashboard")
+orbSymExtra  = input.symbol("IWM", "Symbol 16 — Optional Extra", group="ORB Dashboard")
+
+orbMinutes = orbPeriodSel == "5 Min" ? 5 : orbPeriodSel == "15 Min" ? 15 : orbPeriodSel == "30 Min" ? 30 : 60
+orbCalcTf  = orbPeriodSel == "5 Min" ? "5" : orbPeriodSel == "15 Min" ? "15" : orbPeriodSel == "30 Min" ? "30" : "60"
+orbTxtSize = orbTextSize == "Tiny" ? size.tiny : orbTextSize == "Normal" ? size.normal : size.small
+
+
+// ============================================================
+//  SECTION 2 — MTF SIGNAL FUNCTION
+// ============================================================
+
+_tfSignal() =>
+    _e9   = ta.ema(close, 9)
+    _e20  = ta.ema(close, 20)
+    _e200 = ta.ema(close, 200)
+    _rsi  = ta.rsi(close, 14)
+    [_ml, _sl, _] = ta.macd(close, 12, 26, 9)
+    _emaBull   = close > _e9  and _e9  > _e20
+    _emaBear   = close < _e9  and _e9  < _e20
+    _trendBull = close > _e200
+    _trendBear = close < _e200
+    _rsiBull   = _rsi > 55
+    _rsiBear   = _rsi < 45
+    _macdBull  = _ml > _sl
+    _macdBear  = _ml < _sl
+    _bull = (_emaBull ? 1 : 0) + (_trendBull ? 1 : 0) + (_rsiBull ? 1 : 0) + (_macdBull ? 1 : 0)
+    _bear = (_emaBear ? 1 : 0) + (_trendBear ? 1 : 0) + (_rsiBear ? 1 : 0) + (_macdBear ? 1 : 0)
+    _sig  = _bull >= 3 ? 1 : _bear >= 3 ? -1 : 0
+    [_sig, math.max(_bull, _bear)]
+
+[sig1m,  str1m]  = request.security(syminfo.tickerid, "1",  _tfSignal())
+[sig3m,  str3m]  = request.security(syminfo.tickerid, "3",  _tfSignal())
+[sig10m, str10m] = request.security(syminfo.tickerid, "10", _tfSignal())
+[sig30m, str30m] = request.security(syminfo.tickerid, "30", _tfSignal())
+
+alignedBull = sig1m == 1  and sig3m == 1  and sig10m == 1  and sig30m == 1
+alignedBear = sig1m == -1 and sig3m == -1 and sig10m == -1 and sig30m == -1
+avgStrength = (str1m + str3m + str10m + str30m) / 4.0
+
+strikeType  = "NO TRADE"
+strikeColor = color.gray
+
+if alignedBull or alignedBear
+    if avgStrength >= 3.5
+        strikeType  := "DEEP ITM"
+        strikeColor := color.purple
+    else if avgStrength >= 3
+        strikeType  := "ITM"
+        strikeColor := color.blue
+    else
+        strikeType  := "ATM"
+        strikeColor := color.green
+else
+    if str1m >= 3
+        strikeType  := "ATM SCALP"
+        strikeColor := color.yellow
+
+atm         = math.round(close / step) * step
+maxDistance = step * 1.2
+callStrike  = atm
+putStrike   = atm
+
+if strikeType == "ITM"
+    callStrike := math.abs(close - (atm - step))     <= maxDistance ? atm - step     : atm
+    putStrike  := math.abs(close - (atm + step))     <= maxDistance ? atm + step     : atm
+
+if strikeType == "DEEP ITM"
+    callStrike := math.abs(close - (atm - 2 * step)) <= maxDistance ? atm - 2 * step : atm
+    putStrike  := math.abs(close - (atm + 2 * step)) <= maxDistance ? atm + 2 * step : atm
+
+direction   = alignedBull ? "CALL" : alignedBear ? "PUT" : "NONE"
+finalStrike = "-"
+if direction == "CALL"
+    finalStrike := str.tostring(callStrike)
+else if direction == "PUT"
+    finalStrike := str.tostring(putStrike)
+
+
+// ============================================================
+//  SECTION 3 — CBC TREND
+// ============================================================
+var bool cbc = false
+if bar_index > 0
+    cbc := cbc[1]
+if bar_index > 0
+    if cbc and close < low[1]
+        cbc := false
+    if not cbc and close > high[1]
+        cbc := true
+
+cbcBull = cbc
+cbcBear = not cbc
+
+bgcolor(cbc and not cbc[1]  ? color.new(color.yellow, 75) :
+        not cbc and cbc[1]  ? color.new(color.blue,   75) : na)
+
+plotshape(not cbc and cbc[1], style=shape.triangledown, location=location.abovebar, color=color.red,   size=size.small)
+plotshape(cbc and not cbc[1], style=shape.triangleup,   location=location.belowbar, color=color.green, size=size.small)
+
+
+// ============================================================
+//  SECTION 4 — EMA PLOTS + 200 EMA + VWAP
+// ============================================================
+emaFast  = ta.ema(close, emaFastLen)
+emaSlow  = ta.ema(close, emaSlowLen)
+ema200   = ta.ema(close, 200)
+vwapVal  = ta.vwap(hlc3)
+
+plot(emaFast,  "EMA Fast",  color=color.white,  linewidth=2)
+plot(emaSlow,  "EMA Slow",  color=color.orange, linewidth=2)
+plot(ema200,   "EMA 200",   color=color.yellow, linewidth=2)
+plot(vwapVal,  "VWAP",      color=color.green,  linewidth=2)
+
+ema200Above = close > ema200
+vwapAbove   = close > vwapVal
+
+
+// ============================================================
+//  SECTION 5 — S/R ZONES
+// ============================================================
+ph = ta.pivothigh(high, pivotStrength, pivotStrength)
+pl = ta.pivotlow(low,   pivotStrength, pivotStrength)
+
+var float[] resAll = array.new_float()
+var float[] supAll = array.new_float()
+var line[]  rLines = array.new_line()
+var line[]  sLines = array.new_line()
+var box[]   rBoxes = array.new_box()
+var box[]   sBoxes = array.new_box()
+
+if not na(ph)
+    array.push(resAll, ph)
+    zone = ph * zonePercent / 100
+    array.push(rBoxes, box.new(bar_index, ph + zone, bar_index + extendBars, ph - zone,
+         bgcolor=color.new(color.red, 85), border_color=color.red))
+    array.push(rLines, line.new(bar_index, ph, bar_index + extendBars, ph,
+         color=color.red, width=2))
+    if array.size(rBoxes) > maxSRZones
+        box.delete(array.shift(rBoxes))
+        line.delete(array.shift(rLines))
+        array.shift(resAll)
+
+if not na(pl)
+    array.push(supAll, pl)
+    zone = pl * zonePercent / 100
+    array.push(sBoxes, box.new(bar_index, pl + zone, bar_index + extendBars, pl - zone,
+         bgcolor=color.new(color.green, 85), border_color=color.green))
+    array.push(sLines, line.new(bar_index, pl, bar_index + extendBars, pl,
+         color=color.green, width=2))
+    if array.size(sBoxes) > maxSRZones
+        box.delete(array.shift(sBoxes))
+        line.delete(array.shift(sLines))
+        array.shift(supAll)
+
+float rLevel = na
+float sLevel = na
+
+if array.size(resAll) > 0
+    for i = 0 to array.size(resAll) - 1
+        val = array.get(resAll, i)
+        if val > close
+            rLevel := na(rLevel) ? val : math.min(rLevel, val)
+
+if array.size(supAll) > 0
+    for i = 0 to array.size(supAll) - 1
+        val = array.get(supAll, i)
+        if val < close
+            sLevel := na(sLevel) ? val : math.max(sLevel, val)
+
+
+// ============================================================
+//  SECTION 6 — EMA ANGLE SYSTEM
+// ============================================================
+atr       = ta.atr(atrLen)
+slopeFast = (emaFast - emaFast[slopeLookback]) / atr
+slopeSlow = (emaSlow - emaSlow[slopeLookback]) / atr
+
+angledUp   = slopeFast >  minSlopeATR and slopeSlow >  minSlopeATR
+angledDown = slopeFast < -minSlopeATR and slopeSlow < -minSlopeATR
+flatEMAs   = not angledUp and not angledDown
+
+emaCross = ta.cross(emaFast, emaSlow)
+
+var int lastCrossBar = na
+if emaCross
+    lastCrossBar := bar_index
+
+inCooldown = cooldownBars > 0 and not na(lastCrossBar) and (bar_index - lastCrossBar) <= cooldownBars
+dontTrade  = flatEMAs or emaCross or inCooldown
+
+isGreen   = close > open
+isRed     = close < open
+trendUp   = emaFast > emaSlow
+trendDown = emaFast < emaSlow
+
+longSignal  = (not dontTrade) and angledUp   and trendUp   and isGreen
+shortSignal = (not dontTrade) and angledDown and trendDown and isRed
+exLong      = (not dontTrade) and angledUp   and trendUp   and isRed
+exShort     = (not dontTrade) and angledDown and trendDown and isGreen
+exSignal    = exLong or exShort
+
+var label dtLbl = na
+var label lbLbl = na
+var label lsLbl = na
+var label exLbl = na
+
+var bool prevDontTrade   = false
+var bool prevLongSignal  = false
+var bool prevShortSignal = false
+var bool prevExSignal    = false
+
+if barstate.isrealtime
+    if dontTrade != prevDontTrade
+        if dontTrade
+            dtLbl := label.new(bar_index, high, "DT", style=label.style_label_down, color=color.gray, textcolor=color.white, size=size.tiny)
+        else
+            label.delete(dtLbl), dtLbl := na
+        prevDontTrade := dontTrade
+    else if dontTrade and not na(dtLbl)
+        label.set_x(dtLbl, bar_index), label.set_y(dtLbl, high)
+
+    if longSignal != prevLongSignal
+        if longSignal
+            lbLbl := label.new(bar_index, low, "LB", style=label.style_label_up, color=color.green, textcolor=color.white, size=size.small)
+        else
+            label.delete(lbLbl), lbLbl := na
+        prevLongSignal := longSignal
+    else if longSignal and not na(lbLbl)
+        label.set_x(lbLbl, bar_index), label.set_y(lbLbl, low)
+
+    if shortSignal != prevShortSignal
+        if shortSignal
+            lsLbl := label.new(bar_index, high, "LS", style=label.style_label_down, color=color.red, textcolor=color.white, size=size.small)
+        else
+            label.delete(lsLbl), lsLbl := na
+        prevShortSignal := shortSignal
+    else if shortSignal and not na(lsLbl)
+        label.set_x(lsLbl, bar_index), label.set_y(lsLbl, high)
+
+    if exSignal != prevExSignal
+        exY   = exLong ? high : low
+        exSty = exLong ? label.style_label_down : label.style_label_up
+        if exSignal
+            exLbl := label.new(bar_index, exY, "EX", style=exSty, color=color.orange, textcolor=color.white, size=size.tiny)
+        else
+            label.delete(exLbl), exLbl := na
+        prevExSignal := exSignal
+    else if exSignal and not na(exLbl)
+        exY = exLong ? high : low
+        exSty = exLong ? label.style_label_down : label.style_label_up
+        label.set_x(exLbl, bar_index), label.set_y(exLbl, exY), label.set_style(exLbl, exSty)
+
+
+// ============================================================
+//  SECTION 7 — CBC + S/R ZONE ENTRY SIGNALS
+// ============================================================
+rng    = high - low
+body   = math.abs(close - open)
+upperW = high - math.max(open, close)
+lowerW = math.min(open, close) - low
+
+upperPct = rng > 0 ? upperW / rng : 0.0
+lowerPct = rng > 0 ? lowerW / rng : 0.0
+rangeOK  = rng >= syminfo.mintick * 3
+
+touchSup = not na(sLevel) and low  <= sLevel
+touchRes = not na(rLevel) and high >= rLevel
+
+bullBody     = close > open and body > rng * 0.25
+bearBody     = close < open and body > rng * 0.25
+emaSlope     = emaFast - emaFast[1]
+bullSlope    = emaSlope > 0
+bearSlope    = emaSlope < 0
+emaBullLocal = emaFast > emaSlow and close > emaFast
+emaBearLocal = emaFast < emaSlow and close < emaFast
+
+buySignal =
+     rangeOK  and touchSup and
+     lowerPct >= 0.45 and upperPct <= 0.25 and
+     emaBullLocal and bullBody and bullSlope and cbcBull
+
+sellSignal =
+     rangeOK  and touchRes and
+     upperPct >= 0.45 and lowerPct <= 0.25 and
+     emaBearLocal and bearBody and bearSlope and cbcBear
+
+var label entryLbl = na
+if barstate.islast
+    label.delete(entryLbl)
+    if buySignal
+        entryLbl := label.new(bar_index, low,  "B", style=label.style_label_up,   color=color.green, textcolor=color.white)
+    else if sellSignal
+        entryLbl := label.new(bar_index, high, "S", style=label.style_label_down, color=color.red,   textcolor=color.white)
+
+alertcondition(buySignal,  "BUY",  "CBC + Support Bounce")
+alertcondition(sellSignal, "SELL", "CBC + Resistance Rejection")
+
+
+// ============================================================
+//  SECTION 8 — FAIR VALUE GAP
+// ============================================================
+fvgBullFill   = color.new(fvgBullColor, fvgBullShadeTrans)
+fvgBearFill   = color.new(fvgBearColor, fvgBearShadeTrans)
+fvgBullBorder = fvgShowBorder ? color.new(fvgBullColor, fvgBorderTrans) : color.new(fvgBullColor, 100)
+fvgBearBorder = fvgShowBorder ? color.new(fvgBearColor, fvgBorderTrans) : color.new(fvgBearColor, 100)
+
+bullFVG = low  > high[2]
+bearFVG = high < low[2]
+
+var box[] fvgBullBoxes = array.new_box()
+var box[] fvgBearBoxes = array.new_box()
+
+if fvgShowBull and bullFVG
+    b = box.new(bar_index - 2, low, bar_index - 2 + fvgExtendBars, high[2],
+         bgcolor=fvgBullFill, border_color=fvgBullBorder)
+    array.push(fvgBullBoxes, b)
+    if array.size(fvgBullBoxes) > fvgMaxActive
+        box.delete(array.shift(fvgBullBoxes))
+
+if fvgShowBear and bearFVG
+    b = box.new(bar_index - 2, low[2], bar_index - 2 + fvgExtendBars, high,
+         bgcolor=fvgBearFill, border_color=fvgBearBorder)
+    array.push(fvgBearBoxes, b)
+    if array.size(fvgBearBoxes) > fvgMaxActive
+        box.delete(array.shift(fvgBearBoxes))
+
+if fvgDeleteFill
+    if array.size(fvgBullBoxes) > 0
+        for i = array.size(fvgBullBoxes) - 1 to 0
+            b   = array.get(fvgBullBoxes, i)
+            bot = box.get_bottom(b)
+            if low <= bot
+                box.delete(b)
+                array.remove(fvgBullBoxes, i)
+    if array.size(fvgBearBoxes) > 0
+        for i = array.size(fvgBearBoxes) - 1 to 0
+            b   = array.get(fvgBearBoxes, i)
+            top = box.get_top(b)
+            if high >= top
+                box.delete(b)
+                array.remove(fvgBearBoxes, i)
+
+fvgState =
+     bullFVG and not bearFVG ? "BULL" :
+     bearFVG and not bullFVG ? "BEAR" :
+     bullFVG and bearFVG     ? "BOTH" : "--"
+
+fvgDashColor =
+     bullFVG and not bearFVG ? color.lime   :
+     bearFVG and not bullFVG ? color.red    :
+     bullFVG and bearFVG     ? color.orange : color.gray
+
+
+// ============================================================
+//  SECTION 9 — RSI STATE CLASSIFICATION
+// ============================================================
+rsiValue = ta.rsi(close, rsiLen)
+
+rsiState =
+     rsiValue >= rsiOBLevel  ? "OB"   :
+     rsiValue >  rsiBullZone ? "BULL" :
+     rsiValue <  rsiOSLevel  ? "OS"   :
+     rsiValue <  rsiBearZone ? "BEAR" :
+     "NEUT"
+
+rsiStateColor =
+     rsiState == "OB"   ? color.purple :
+     rsiState == "BULL" ? color.green  :
+     rsiState == "OS"   ? color.aqua   :
+     rsiState == "BEAR" ? color.red    :
+     color.gray
+
+rsiMomDelta = rsiValue - rsiValue[3]
+rsiMomText  = rsiMomDelta >  1.5 ? "↑ RISING"  :
+              rsiMomDelta < -1.5 ? "↓ FALLING" : "→ FLAT"
+rsiMomColor = rsiMomDelta >  1.5 ? color.green :
+              rsiMomDelta < -1.5 ? color.red   : color.gray
+
+priceDelta5 = close    - close[5]
+rsiDelta5   = rsiValue - rsiValue[5]
+rsiBullDiv  = priceDelta5 < 0 and rsiDelta5 > 0
+rsiBearDiv  = priceDelta5 > 0 and rsiDelta5 < 0
+rsiDivText  = rsiBullDiv ? "BULL DIV" : rsiBearDiv ? "BEAR DIV" : "--"
+rsiDivColor = rsiBullDiv ? color.green : rsiBearDiv ? color.red : color.gray
+
+
+// ============================================================
+//  SECTION 10 — MACD STATE CLASSIFICATION
+// ============================================================
+[macdLineVal, macdSigVal, macdHistVal] = ta.macd(close, macdFastLen, macdSlowLen, macdSigLen)
+
+macdAboveZero = macdLineVal > 0
+macdBelowZero = macdLineVal < 0
+
+macdBullCross = ta.crossover(macdLineVal,  macdSigVal)
+macdBearCross = ta.crossunder(macdLineVal, macdSigVal)
+
+histPrev     = macdHistVal[1]
+histExpBull  = macdHistVal > 0 and macdHistVal > histPrev
+histContBull = macdHistVal > 0 and macdHistVal < histPrev
+histExpBear  = macdHistVal < 0 and macdHistVal < histPrev
+histContBear = macdHistVal < 0 and macdHistVal > histPrev
+
+macdState =
+     macdAboveZero and histExpBull  ? "BULL +" :
+     macdAboveZero and histContBull ? "BULL -" :
+     macdBelowZero and histExpBear  ? "BEAR +" :
+     macdBelowZero and histContBear ? "BEAR -" :
+     macdAboveZero                  ? "BULL"   :
+     macdBelowZero                  ? "BEAR"   :
+     "FLAT"
+
+macdStateColor =
+     macdState == "BULL +" ? color.new(color.green, 0)  :
+     macdState == "BULL -" ? color.new(color.green, 45) :
+     macdState == "BEAR +" ? color.new(color.red,   0)  :
+     macdState == "BEAR -" ? color.new(color.red,  45)  :
+     macdState == "BULL"   ? color.teal   :
+     macdState == "BEAR"   ? color.maroon :
+     color.gray
+
+macdCrossText  = macdBullCross ? "▲ CROSS" : macdBearCross ? "▼ CROSS" : "--"
+macdCrossColor = macdBullCross ? color.green : macdBearCross ? color.red : color.gray
+
+
+// ============================================================
+//  SECTION 11 — DASHBOARD (4 cols × 17 rows)
+// ============================================================
+
+getColor(sig) =>
+    sig == 1 ? color.green : sig == -1 ? color.red : color.gray
+
+getText(sig) =>
+    sig == 1 ? "BUY" : sig == -1 ? "SELL" : "WAIT"
+
+angleLabel() =>
+    longSignal ? "LB" : shortSignal ? "LS" : exSignal ? "EX" : dontTrade ? "DT" : "--"
+
+angleColor() =>
+    longSignal ? color.green : shortSignal ? color.red : exSignal ? color.orange : color.gray
+
+var table dash = table.new(position.top_right, 4, 17, border_width=1)
+
+varip string prevAngleLabel = ""
+varip int    prevSig1m = 99
+varip int    prevSig3m = 99
+
+if barstate.isfirst
+    table.cell(dash, 0, 0, "TF",       bgcolor=color.black, text_color=color.white, text_size=size.small)
+    table.cell(dash, 1, 0, "Signal",   bgcolor=color.black, text_color=color.white, text_size=size.small)
+    table.cell(dash, 2, 0, "Strength", bgcolor=color.black, text_color=color.white, text_size=size.small)
+    table.cell(dash, 3, 0, "Detail",   bgcolor=color.black, text_color=color.white, text_size=size.small)
+
+    table.cell(dash, 0, 1,  "1m",      text_color=color.white, text_size=size.small)
+    table.cell(dash, 0, 2,  "3m",      text_color=color.white, text_size=size.small)
+    table.cell(dash, 0, 3,  "10m",     text_color=color.white, text_size=size.small)
+    table.cell(dash, 0, 4,  "30m",     text_color=color.white, text_size=size.small)
+    table.cell(dash, 0, 5,  "ALIGN",   text_color=color.white, text_size=size.small)
+    table.cell(dash, 0, 6,  "STRIKE",  text_color=color.white, text_size=size.small)
+    table.cell(dash, 0, 7,  "ANGLE",   text_color=color.white, text_size=size.small)
+    table.cell(dash, 0, 8,  "CBC",     text_color=color.white, text_size=size.small)
+    table.cell(dash, 0, 9,  "FVG",     text_color=color.white, text_size=size.small)
+    table.cell(dash, 0, 10, "RSI",     text_color=color.white, text_size=size.small)
+    table.cell(dash, 0, 11, "RSI MOM", text_color=color.white, text_size=size.small)
+    table.cell(dash, 0, 12, "RSI DIV", text_color=color.white, text_size=size.small)
+    table.cell(dash, 0, 13, "MACD",    text_color=color.white, text_size=size.small)
+    table.cell(dash, 0, 14, "MACD X",  text_color=color.white, text_size=size.small)
+    table.cell(dash, 0, 15, "200 EMA", text_color=color.white, text_size=size.small)
+    table.cell(dash, 0, 16, "VWAP",    text_color=color.white, text_size=size.small)
+
+if barstate.islast
+    // ── 1m
+    table.cell(dash, 1, 1, getText(sig1m),  bgcolor=getColor(sig1m),  text_color=color.white, text_size=size.small)
+    table.cell(dash, 2, 1, str.tostring(str1m)  + "/4",               text_color=color.white, text_size=size.small)
+    table.cell(dash, 3, 1, "",                                         text_color=color.white, text_size=size.small)
+
+    // ── 3m
+    table.cell(dash, 1, 2, getText(sig3m),  bgcolor=getColor(sig3m),  text_color=color.white, text_size=size.small)
+    table.cell(dash, 2, 2, str.tostring(str3m)  + "/4",               text_color=color.white, text_size=size.small)
+    table.cell(dash, 3, 2, "",                                         text_color=color.white, text_size=size.small)
+
+    // ── 10m
+    table.cell(dash, 1, 3, getText(sig10m), bgcolor=getColor(sig10m), text_color=color.white, text_size=size.small)
+    table.cell(dash, 2, 3, str.tostring(str10m) + "/4",               text_color=color.white, text_size=size.small)
+    table.cell(dash, 3, 3, "",                                         text_color=color.white, text_size=size.small)
+
+    // ── 30m
+    table.cell(dash, 1, 4, getText(sig30m), bgcolor=getColor(sig30m), text_color=color.white, text_size=size.small)
+    table.cell(dash, 2, 4, str.tostring(str30m) + "/4",               text_color=color.white, text_size=size.small)
+    table.cell(dash, 3, 4, "",                                         text_color=color.white, text_size=size.small)
+
+    // ── ALIGN
+    table.cell(dash, 1, 5,
+         alignedBull ? "STRONG BUY"  :
+         alignedBear ? "STRONG SELL" : "NO TRADE",
+         bgcolor =
+             alignedBull ? color.green :
+             alignedBear ? color.red   : color.gray,
+         text_color=color.white, text_size=size.small)
+    table.cell(dash, 2, 5, "", text_color=color.white, text_size=size.small)
+    table.cell(dash, 3, 5, "", text_color=color.white, text_size=size.small)
+
+    // ── STRIKE
+    table.cell(dash, 1, 6, direction + " " + finalStrike, bgcolor=strikeColor, text_color=color.white, text_size=size.small)
+    table.cell(dash, 2, 6, strikeType,                    bgcolor=strikeColor, text_color=color.white, text_size=size.small)
+    table.cell(dash, 3, 6, "",                                                  text_color=color.white, text_size=size.small)
+
+    // ── ANGLE
+    table.cell(dash, 1, 7, angleLabel(), bgcolor=angleColor(), text_color=color.white, text_size=size.small)
+    table.cell(dash, 2, 7, "",                                  text_color=color.white, text_size=size.small)
+    table.cell(dash, 3, 7, "",                                  text_color=color.white, text_size=size.small)
+
+    // ── CBC
+    table.cell(dash, 1, 8, cbc ? "BULL" : "BEAR",
+         bgcolor = cbc ? color.green : color.red,
+         text_color=color.white, text_size=size.small)
+    table.cell(dash, 2, 8, "", text_color=color.white, text_size=size.small)
+    table.cell(dash, 3, 8, "", text_color=color.white, text_size=size.small)
+
+    // ── FVG
+    table.cell(dash, 1, 9, fvgState, bgcolor=fvgDashColor, text_color=color.white, text_size=size.small)
+    table.cell(dash, 2, 9, "",                              text_color=color.white, text_size=size.small)
+    table.cell(dash, 3, 9, "",                              text_color=color.white, text_size=size.small)
+
+    // ── RSI STATE
+    table.cell(dash, 1, 10, rsiState,
+         bgcolor=rsiStateColor, text_color=color.white, text_size=size.small)
+    table.cell(dash, 2, 10,
+         str.tostring(math.round(rsiValue, 1)),
+         bgcolor=rsiStateColor, text_color=color.white, text_size=size.small)
+    table.cell(dash, 3, 10,
+         "OB>" + str.tostring(rsiOBLevel) + " OS<" + str.tostring(rsiOSLevel),
+         text_color=color.silver, text_size=size.small)
+
+    // ── RSI MOMENTUM
+    table.cell(dash, 1, 11, rsiMomText,  bgcolor=rsiMomColor, text_color=color.white, text_size=size.small)
+    table.cell(dash, 2, 11, "",                                text_color=color.white, text_size=size.small)
+    table.cell(dash, 3, 11, "",                                text_color=color.white, text_size=size.small)
+
+    // ── RSI DIVERGENCE
+    table.cell(dash, 1, 12, rsiDivText,  bgcolor=rsiDivColor, text_color=color.white, text_size=size.small)
+    table.cell(dash, 2, 12,
+         "PΔ:" + str.tostring(math.round(priceDelta5, 2)),
+         text_color = priceDelta5 >= 0 ? color.green : color.red, text_size=size.small)
+    table.cell(dash, 3, 12,
+         "RΔ:" + str.tostring(math.round(rsiDelta5, 1)),
+         text_color = rsiDelta5 >= 0 ? color.green : color.red, text_size=size.small)
+
+    // ── MACD STATE
+    table.cell(dash, 1, 13, macdState,
+         bgcolor=macdStateColor, text_color=color.white, text_size=size.small)
+    table.cell(dash, 2, 13,
+         "H:" + str.tostring(math.round(macdHistVal, 4)),
+         bgcolor    = macdHistVal >= 0 ? color.new(color.green, 55) : color.new(color.red, 55),
+         text_color = color.white, text_size=size.small)
+    table.cell(dash, 3, 13,
+         "L:" + str.tostring(math.round(macdLineVal, 4)),
+         text_color = macdAboveZero ? color.green : color.red, text_size=size.small)
+
+    // ── MACD CROSS
+    table.cell(dash, 1, 14, macdCrossText,
+         bgcolor=macdCrossColor, text_color=color.white, text_size=size.small)
+    table.cell(dash, 2, 14,
+         "M:" + str.tostring(math.round(macdLineVal, 4)),
+         text_color = macdAboveZero ? color.green : color.red, text_size=size.small)
+    table.cell(dash, 3, 14,
+         "S:" + str.tostring(math.round(macdSigVal, 4)),
+         text_color = color.silver, text_size=size.small)
+
+    // ── 200 EMA
+    table.cell(dash, 1, 15,
+         ema200Above ? "BULL" : "BEAR",
+         bgcolor    = ema200Above ? color.green : color.red,
+         text_color = color.white, text_size=size.small)
+    table.cell(dash, 2, 15,
+         str.tostring(math.round(ema200, 2)),
+         text_color = ema200Above ? color.green : color.red, text_size=size.small)
+    table.cell(dash, 3, 15, "", text_color=color.white, text_size=size.small)
+
+    // ── VWAP
+    table.cell(dash, 1, 16,
+         vwapAbove ? "BULL" : "BEAR",
+         bgcolor    = vwapAbove ? color.green : color.red,
+         text_color = color.white, text_size=size.small)
+    table.cell(dash, 2, 16,
+         str.tostring(math.round(vwapVal, 2)),
+         text_color = vwapAbove ? color.green : color.red, text_size=size.small)
+    table.cell(dash, 3, 16, "", text_color=color.white, text_size=size.small)
+
+
+// ============================================================
+//  SECTION 12 — KEY LEVELS
+// ============================================================
+
+// Daily tuple: DH, PDH, PDL, 20H, 20L, 50H, 50L, DL, 30H, 30L
+[dhHigh, pdhHigh, pdlLow, d20High, d20Low, d50High, d50Low, dlLow, d30High, d30Low] =
+     request.security(syminfo.tickerid, "D",
+         [high, high[1], low[1],
+          ta.highest(high, 20), ta.lowest(low, 20),
+          ta.highest(high, 50), ta.lowest(low, 50),
+          low, ta.highest(high, 30), ta.lowest(low, 30)],
+         lookahead=barmerge.lookahead_off)
+
+[wHigh, wLow] =
+     request.security(syminfo.tickerid, "W",
+         [high, low],
+         lookahead=barmerge.lookahead_off)
+
+[mHigh, mLow] =
+     request.security(syminfo.tickerid, "M",
+         [high, low],
+         lookahead=barmerge.lookahead_off)
+
+klDrawLine(existingLine, existingLabel, show, lvl, clr, txt, labelColumn) =>
+    newL  = existingLine
+    newLb = existingLabel
+    labelX = bar_index + klLabelStart + labelColumn * klLabelSpace
+    if show and not na(lvl)
+        if na(existingLine)
+            newL  := line.new(bar_index - klExtend, lvl, bar_index, lvl,
+                 color=clr, width=1, style=line.style_dashed, extend=extend.right)
+            newLb := label.new(labelX, lvl, txt,
+                 style=label.style_label_left, color=color.new(clr, 70),
+                 textcolor=clr, size=size.tiny)
+        else
+            line.set_y1(existingLine,  lvl)
+            line.set_y2(existingLine,  lvl)
+            line.set_x1(existingLine,  bar_index - klExtend)
+            line.set_x2(existingLine,  bar_index)
+            label.set_y(existingLabel, lvl)
+            label.set_x(existingLabel, labelX)
+    else
+        if not na(existingLine)
+            line.delete(existingLine)
+            newL := na
+        if not na(existingLabel)
+            label.delete(existingLabel)
+            newLb := na
+    [newL, newLb]
+
+var line klLineDH   = na
+var line klLineDL   = na
+var line klLinePDH  = na
+var line klLinePDL  = na
+var line klLineWH   = na
+var line klLineWL   = na
+var line klLineMH   = na
+var line klLineML   = na
+var line klLine20H  = na
+var line klLine20L  = na
+var line klLine30H  = na
+var line klLine30L  = na
+var line klLine50H  = na
+var line klLine50L  = na
+
+var label klLblDH   = na
+var label klLblDL   = na
+var label klLblPDH  = na
+var label klLblPDL  = na
+var label klLblWH   = na
+var label klLblWL   = na
+var label klLblMH   = na
+var label klLblML   = na
+var label klLbl20H  = na
+var label klLbl20L  = na
+var label klLbl30H  = na
+var label klLbl30L  = na
+var label klLbl50H  = na
+var label klLbl50L  = na
+
+if barstate.islast
+    [lDH,  lbDH]  = klDrawLine(klLineDH,  klLblDH,  klShowDH,  dhHigh,  klDHColor, "DH",  0)
+    [lDL,  lbDL]  = klDrawLine(klLineDL,  klLblDL,  klShowDL,  dlLow,   klDHColor, "DL",  0)
+    [lPDH, lbPDH] = klDrawLine(klLinePDH, klLblPDH, klShowPDH, pdhHigh, klPDColor, "PDH", 1)
+    [lPDL, lbPDL] = klDrawLine(klLinePDL, klLblPDL, klShowPDL, pdlLow,  klPDColor, "PDL", 1)
+    [lWH,  lbWH]  = klDrawLine(klLineWH,  klLblWH,  klShowWH,  wHigh,   klWColor,  "WH",  2)
+    [lWL,  lbWL]  = klDrawLine(klLineWL,  klLblWL,  klShowWL,  wLow,    klWColor,  "WL",  2)
+    [lMH,  lbMH]  = klDrawLine(klLineMH,  klLblMH,  klShowMH,  mHigh,   klMColor,  "MH",  3)
+    [lML,  lbML]  = klDrawLine(klLineML,  klLblML,  klShowML,  mLow,    klMColor,  "ML",  3)
+    [l20H, lb20H] = klDrawLine(klLine20H, klLbl20H, klShow20H, d20High, kl20Color, "20H", 4)
+    [l20L, lb20L] = klDrawLine(klLine20L, klLbl20L, klShow20L, d20Low,  kl20Color, "20L", 4)
+    [l30H, lb30H] = klDrawLine(klLine30H, klLbl30H, klShow30H, d30High, kl30Color, "30H", 5)
+    [l30L, lb30L] = klDrawLine(klLine30L, klLbl30L, klShow30L, d30Low,  kl30Color, "30L", 5)
+    [l50H, lb50H] = klDrawLine(klLine50H, klLbl50H, klShow50H, d50High, kl50Color, "50H", 6)
+    [l50L, lb50L] = klDrawLine(klLine50L, klLbl50L, klShow50L, d50Low,  kl50Color, "50L", 6)
+
+    klLineDH  := lDH,  klLblDH  := lbDH
+    klLineDL  := lDL,  klLblDL  := lbDL
+    klLinePDH := lPDH, klLblPDH := lbPDH
+    klLinePDL := lPDL, klLblPDL := lbPDL
+    klLineWH  := lWH,  klLblWH  := lbWH
+    klLineWL  := lWL,  klLblWL  := lbWL
+    klLineMH  := lMH,  klLblMH  := lbMH
+    klLineML  := lML,  klLblML  := lbML
+    klLine20H := l20H, klLbl20H := lb20H
+    klLine20L := l20L, klLbl20L := lb20L
+    klLine30H := l30H, klLbl30H := lb30H
+    klLine30L := l30L, klLbl30L := lb30L
+    klLine50H := l50H, klLbl50H := lb50H
+    klLine50L := l50L, klLbl50L := lb50L
+
+
+// ============================================================
+//  SECTION 13 — MULTI-SYMBOL ORB (OPENING RANGE BREAKOUT) DASHBOARD
+//  SPY, QQQ + Magnificent 7 + index futures (NQ, ES, YM, MNQ, MES, MYM)
+//  Selectable ORB window: 5 Min / 15 Min / 30 Min / 1 Hour
+//  Grey = inside ORB · Green = trading above ORB high · Red = trading below ORB low
+// ============================================================
+
+// Runs inside each request.security() call and builds the opening range
+// beginning at 6:00 PM America/New_York.
+// The request uses the selected ORB timeframe instead of always loading
+// 1-minute history. This is much lighter on TradingView memory.
+f_orbCalc(sess) =>
+    var float oHigh = na
+    var float oLow  = na
+
+    sessStart = timestamp("America/New_York", year, month, dayofmonth, 20, 00)
+    sessEnd   = sessStart + sess * 60 * 1000
+    inRange   = time >= sessStart and time < sessEnd
+    newRange  = inRange and not inRange[1]
+
+    if newRange
+        oHigh := na
+        oLow  := na
+
+    if inRange
+        oHigh := na(oHigh) ? high : math.max(oHigh, high)
+        oLow  := na(oLow)  ? low  : math.min(oLow,  low)
+
+    [oHigh, oLow, close]
+
+f_orbStatusText(c, oh, ol) =>
+    na(oh) or na(ol) ? "FORMING" : c > oh ? "ABOVE ORB" : c < ol ? "BELOW ORB" : "INSIDE ORB"
+
+f_orbStatusColor(c, oh, ol) =>
+    na(oh) or na(ol) ? color.new(color.gray, 40) : c > oh ? color.new(color.green, 20) : c < ol ? color.new(color.red, 20) : color.new(color.gray, 20)
+
+[spyOH,  spyOL,  spyC]  = request.security(orbSymSPY,   orbCalcTf, f_orbCalc(orbMinutes), lookahead=barmerge.lookahead_off)
+[qqqOH,  qqqOL,  qqqC]  = request.security(orbSymQQQ,   orbCalcTf, f_orbCalc(orbMinutes), lookahead=barmerge.lookahead_off)
+[aaplOH, aaplOL, aaplC] = request.security(orbSymAAPL,  orbCalcTf, f_orbCalc(orbMinutes), lookahead=barmerge.lookahead_off)
+[msftOH, msftOL, msftC] = request.security(orbSymMSFT,  orbCalcTf, f_orbCalc(orbMinutes), lookahead=barmerge.lookahead_off)
+[gogOH,  gogOL,  gogC]  = request.security(orbSymGOOGL, orbCalcTf, f_orbCalc(orbMinutes), lookahead=barmerge.lookahead_off)
+[amznOH, amznOL, amznC] = request.security(orbSymAMZN,  orbCalcTf, f_orbCalc(orbMinutes), lookahead=barmerge.lookahead_off)
+[nvdaOH, nvdaOL, nvdaC] = request.security(orbSymNVDA,  orbCalcTf, f_orbCalc(orbMinutes), lookahead=barmerge.lookahead_off)
+[metaOH, metaOL, metaC] = request.security(orbSymMETA,  orbCalcTf, f_orbCalc(orbMinutes), lookahead=barmerge.lookahead_off)
+[tslaOH, tslaOL, tslaC] = request.security(orbSymTSLA,  orbCalcTf, f_orbCalc(orbMinutes), lookahead=barmerge.lookahead_off)
+[nqOH,   nqOL,   nqC]   = request.security(orbSymNQ,    orbCalcTf, f_orbCalc(orbMinutes), lookahead=barmerge.lookahead_off)
+[esOH,   esOL,   esC]   = request.security(orbSymES,    orbCalcTf, f_orbCalc(orbMinutes), lookahead=barmerge.lookahead_off)
+[ymOH,   ymOL,   ymC]   = request.security(orbSymYM,    orbCalcTf, f_orbCalc(orbMinutes), lookahead=barmerge.lookahead_off)
+[mnqOH,  mnqOL,  mnqC]  = request.security(orbSymMNQ,   orbCalcTf, f_orbCalc(orbMinutes), lookahead=barmerge.lookahead_off)
+[mesOH,  mesOL,  mesC]  = request.security(orbSymMES,   orbCalcTf, f_orbCalc(orbMinutes), lookahead=barmerge.lookahead_off)
+[mymOH,  mymOL,  mymC]  = request.security(orbSymMYM,   orbCalcTf, f_orbCalc(orbMinutes), lookahead=barmerge.lookahead_off)
+[extOH,  extOL,  extC]  = request.security(orbSymExtra, orbCalcTf, f_orbCalc(orbMinutes), lookahead=barmerge.lookahead_off)
+
+var table orbTable = table.new(
+     orbTablePos == "Top Left"    ? position.top_left    :
+     orbTablePos == "Top Right"   ? position.top_right    :
+     orbTablePos == "Bottom Left" ? position.bottom_left  :
+     position.bottom_right,
+     5, 17, border_width=1)
+
+f_orbRow(tbl, row, name, c, oh, ol) =>
+    stat = f_orbStatusText(c, oh, ol)
+    clr  = f_orbStatusColor(c, oh, ol)
+    table.cell(tbl, 0, row, name, bgcolor=color.black, text_color=color.white, text_size=orbTxtSize)
+    table.cell(tbl, 1, row, na(oh) ? "--" : str.tostring(math.round(oh, 2)), text_color=color.white, text_size=orbTxtSize)
+    table.cell(tbl, 2, row, na(ol) ? "--" : str.tostring(math.round(ol, 2)), text_color=color.white, text_size=orbTxtSize)
+    table.cell(tbl, 3, row, str.tostring(math.round(c, 2)), text_color=color.white, text_size=orbTxtSize)
+    table.cell(tbl, 4, row, stat, bgcolor=clr, text_color=color.white, text_size=orbTxtSize)
+
+if orbShowTable and barstate.islast
+    table.cell(orbTable, 0, 0, "Symbol",             bgcolor=color.black, text_color=color.white, text_size=orbTxtSize)
+    table.cell(orbTable, 1, 0, "ORB High",           bgcolor=color.black, text_color=color.white, text_size=orbTxtSize)
+    table.cell(orbTable, 2, 0, "ORB Low",             bgcolor=color.black, text_color=color.white, text_size=orbTxtSize)
+    table.cell(orbTable, 3, 0, "Price",               bgcolor=color.black, text_color=color.white, text_size=orbTxtSize)
+    table.cell(orbTable, 4, 0, orbPeriodSel + " ORB",  bgcolor=color.black, text_color=color.white, text_size=orbTxtSize)
+
+    f_orbRow(orbTable, 1, "SPY",   spyC,  spyOH,  spyOL)
+    f_orbRow(orbTable, 2, "QQQ",   qqqC,  qqqOH,  qqqOL)
+    f_orbRow(orbTable, 3, "AAPL",  aaplC, aaplOH, aaplOL)
+    f_orbRow(orbTable, 4, "MSFT",  msftC, msftOH, msftOL)
+    f_orbRow(orbTable, 5, "GOOGL", gogC,  gogOH,  gogOL)
+    f_orbRow(orbTable, 6, "AMZN",  amznC, amznOH, amznOL)
+    f_orbRow(orbTable, 7, "NVDA",  nvdaC, nvdaOH, nvdaOL)
+    f_orbRow(orbTable, 8, "META",  metaC, metaOH, metaOL)
+    f_orbRow(orbTable, 9, "TSLA",  tslaC, tslaOH, tslaOL)
+    f_orbRow(orbTable, 10, "NQ",   nqC,   nqOH,   nqOL)
+    f_orbRow(orbTable, 11, "ES",   esC,   esOH,   esOL)
+    f_orbRow(orbTable, 12, "YM",   ymC,   ymOH,   ymOL)
+    f_orbRow(orbTable, 13, "MNQ",  mnqC,  mnqOH,  mnqOL)
+    f_orbRow(orbTable, 14, "MES",  mesC,  mesOH,  mesOL)
+    f_orbRow(orbTable, 15, "MYM",  mymC,  mymOH,  mymOL)
+    if orbShowExtra
+        f_orbRow(orbTable, 16, syminfo.ticker(orbSymExtra), extC, extOH, extOL)
+// ============================================================
+//  SECTION 14 — SPY + QQQ + SPX 15-MIN ORB CONFLUENCE ALERTS
+//
+//  Bullish alert:
+//  SPY, QQQ and SPX are ALL above their own 15-minute ORB highs.
+//
+//  Bearish alert:
+//  SPY, QQQ and SPX are ALL below their own 15-minute ORB lows.
+//
+//  This section does not change the dashboard or input groups.
+// ============================================================
+
+// Fixed at 15 minutes, regardless of the ORB dashboard selection.
+[alertSpyOH, alertSpyOL, alertSpyC] =
+     request.security(
+         orbSymSPY,
+         "15",
+         f_orbCalc(15),
+         lookahead=barmerge.lookahead_off
+     )
+
+[alertQqqOH, alertQqqOL, alertQqqC] =
+     request.security(
+         orbSymQQQ,
+         "15",
+         f_orbCalc(15),
+         lookahead=barmerge.lookahead_off
+     )
+
+[alertSpxOH, alertSpxOL, alertSpxC] =
+     request.security(
+         "SP:SPX",
+         "15",
+         f_orbCalc(15),
+         lookahead=barmerge.lookahead_off
+     )
+
+// Make sure all three opening ranges have finished forming.
+orbAlertReady =
+     not na(alertSpyOH) and not na(alertSpyOL) and
+     not na(alertQqqOH) and not na(alertQqqOL) and
+     not na(alertSpxOH) and not na(alertSpxOL)
+
+// All three markets beyond the upper side of their own ORB.
+allThreeAboveORB =
+     orbAlertReady and
+     alertSpyC > alertSpyOH and
+     alertQqqC > alertQqqOH and
+     alertSpxC > alertSpxOH
+
+// All three markets beyond the lower side of their own ORB.
+allThreeBelowORB =
+     orbAlertReady and
+     alertSpyC < alertSpyOL and
+     alertQqqC < alertQqqOL and
+     alertSpxC < alertSpxOL
+
+// Trigger only when the complete three-symbol confluence first becomes true.
+// This prevents repeated alerts while all three remain outside the ORB.
+bullOrbConfluence =
+     allThreeAboveORB and not allThreeAboveORB[1]
+
+bearOrbConfluence =
+     allThreeBelowORB and not allThreeBelowORB[1]
+
+// Alert conditions shown separately in TradingView's alert menu.
+alertcondition(
+     bullOrbConfluence,
+     title="SPY + QQQ + SPX Bullish 15M ORB Confluence",
+     message="BULLISH 15M ORB CONFLUENCE: SPY, QQQ and SPX are all above their own 15-minute ORB highs."
+)
+
+alertcondition(
+     bearOrbConfluence,
+     title="SPY + QQQ + SPX Bearish 15M ORB Confluence",
+     message="BEARISH 15M ORB CONFLUENCE: SPY, QQQ and SPX are all below their own 15-minute ORB lows."
+)
+
+// One combined alert option with prices and ORB levels.
+if bullOrbConfluence
+    alert(
+         "BULLISH 15M ORB CONFLUENCE | " +
+         "SPY: " + str.tostring(alertSpyC) +
+         " > " + str.tostring(alertSpyOH) +
+         " | QQQ: " + str.tostring(alertQqqC) +
+         " > " + str.tostring(alertQqqOH) +
+         " | SPX: " + str.tostring(alertSpxC) +
+         " > " + str.tostring(alertSpxOH),
+         alert.freq_once_per_bar
+     )
+
+if bearOrbConfluence
+    alert(
+         "BEARISH 15M ORB CONFLUENCE | " +
+         "SPY: " + str.tostring(alertSpyC) +
+         " < " + str.tostring(alertSpyOL) +
+         " | QQQ: " + str.tostring(alertQqqC) +
+         " < " + str.tostring(alertQqqOL) +
+         " | SPX: " + str.tostring(alertSpxC) +
+         " < " + str.tostring(alertSpxOL),
+         alert.freq_once_per_bar
+     )

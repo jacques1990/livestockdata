@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Unique Random Workday Picker</title>
+  <style>
+    :root { color-scheme: dark; font-family: Inter, system-ui, sans-serif; }
+    body { min-height: 100vh; margin: 0; display: grid; place-items: center; background: #0f172a; color: #e2e8f0; }
+    main { width: min(520px, calc(100% - 32px)); padding: 28px; border: 1px solid #334155; border-radius: 18px; background: #1e293b; box-shadow: 0 20px 50px #02061780; }
+    h1 { margin: 0 0 8px; font-size: 1.6rem; }
+    p { color: #94a3b8; }
+    .dates { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 22px 0; }
+    label { display: grid; gap: 7px; font-size: .9rem; color: #cbd5e1; }
+    input, button { font: inherit; }
+    input { padding: 10px; border: 1px solid #475569; border-radius: 9px; background: #0f172a; color: #f8fafc; }
+    .result { min-height: 72px; display: grid; place-items: center; margin: 16px 0; padding: 16px; border-radius: 12px; background: #0f172a; color: #38bdf8; font-size: 1.45rem; font-weight: 700; text-align: center; }
+    .actions { display: flex; gap: 10px; }
+    button { flex: 1; padding: 12px 14px; border: 0; border-radius: 10px; cursor: pointer; font-weight: 700; }
+    #pick { background: #38bdf8; color: #082f49; }
+    #reset { background: #475569; color: #f8fafc; }
+    button:disabled { cursor: not-allowed; opacity: .5; }
+    #status { margin-bottom: 0; font-size: .9rem; }
+    @media (max-width: 480px) { .dates { grid-template-columns: 1fr; } .actions { flex-direction: column; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Unique Random Workday</h1>
+    <p>Generates a Monday–Friday date. A date cannot repeat until you reset the pool.</p>
+    <div class="dates">
+      <label>Start date <input id="start" type="date" value="2026-01-10"></label>
+      <label>End date <input id="end" type="date"></label>
+    </div>
+    <div id="result" class="result" aria-live="polite">Press “Pick a date”</div>
+    <div class="actions">
+      <button id="pick">Pick a date</button>
+      <button id="reset">Reset dates</button>
+    </div>
+    <p id="status" aria-live="polite"></p>
+  </main>
+
+  <script>
+    const startInput = document.querySelector('#start');
+    const endInput = document.querySelector('#end');
+    const result = document.querySelector('#result');
+    const status = document.querySelector('#status');
+    const pickButton = document.querySelector('#pick');
+    let availableDates = [];
+
+    const toLocalISO = date => {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+
+    endInput.value = toLocalISO(new Date());
+
+    function rebuildPool() {
+      const start = new Date(`${startInput.value}T12:00:00`);
+      const end = new Date(`${endInput.value}T12:00:00`);
+      availableDates = [];
+
+      if (!startInput.value || !endInput.value || start > end) {
+        result.textContent = 'Choose a valid date range';
+        status.textContent = 'The start date must be on or before the end date.';
+        pickButton.disabled = true;
+        return;
+      }
+
+      for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
+        const day = date.getDay();
+        if (day !== 0 && day !== 6) availableDates.push(new Date(date));
+      }
+
+      result.textContent = 'Press “Pick a date”';
+      pickButton.disabled = availableDates.length === 0;
+      updateStatus();
+    }
+
+    function updateStatus() {
+      status.textContent = `${availableDates.length} unique workday${availableDates.length === 1 ? '' : 's'} remaining.`;
+    }
+
+    pickButton.addEventListener('click', () => {
+      if (!availableDates.length) return;
+      const index = Math.floor(Math.random() * availableDates.length);
+      const [chosen] = availableDates.splice(index, 1);
+      result.textContent = chosen.toLocaleDateString(undefined, {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+      });
+      pickButton.disabled = availableDates.length === 0;
+      updateStatus();
+      if (!availableDates.length) status.textContent += ' Reset to start again.';
+    });
+
+    document.querySelector('#reset').addEventListener('click', rebuildPool);
+    startInput.addEventListener('change', rebuildPool);
+    endInput.addEventListener('change', rebuildPool);
+    rebuildPool();
+  </script>
+</body>
+</html>

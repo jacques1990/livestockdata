@@ -3,102 +3,474 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Unique Random Workday Picker</title>
+  <title>Workday Market Journal</title>
   <style>
-    :root { color-scheme: dark; font-family: Inter, system-ui, sans-serif; }
-    body { min-height: 100vh; margin: 0; display: grid; place-items: center; background: #0f172a; color: #e2e8f0; }
-    main { width: min(520px, calc(100% - 32px)); padding: 28px; border: 1px solid #334155; border-radius: 18px; background: #1e293b; box-shadow: 0 20px 50px #02061780; }
+    :root {
+      color-scheme: dark;
+      font-family: Inter, system-ui, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      padding: 24px;
+      display: grid;
+      place-items: center;
+      background: #0f172a;
+      color: #e2e8f0;
+    }
+    main {
+      width: min(820px, 100%);
+      padding: 28px;
+      border: 1px solid #334155;
+      border-radius: 18px;
+      background: #1e293b;
+      box-shadow: 0 20px 50px #02061780;
+    }
     h1 { margin: 0 0 8px; font-size: 1.6rem; }
-    p { color: #94a3b8; }
-    .dates { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 22px 0; }
-    label { display: grid; gap: 7px; font-size: .9rem; color: #cbd5e1; }
-    input, button { font: inherit; }
-    input { padding: 10px; border: 1px solid #475569; border-radius: 9px; background: #0f172a; color: #f8fafc; }
-    .result { min-height: 72px; display: grid; place-items: center; margin: 16px 0; padding: 16px; border-radius: 12px; background: #0f172a; color: #38bdf8; font-size: 1.45rem; font-weight: 700; text-align: center; }
-    .actions { display: flex; gap: 10px; }
-    button { flex: 1; padding: 12px 14px; border: 0; border-radius: 10px; cursor: pointer; font-weight: 700; }
-    #pick { background: #38bdf8; color: #082f49; }
-    #reset { background: #475569; color: #f8fafc; }
+    h2 { font-size: 1.18rem; }
+    p, .hint { color: #94a3b8; }
+    label {
+      display: grid;
+      gap: 7px;
+      font-size: .9rem;
+      color: #cbd5e1;
+    }
+    input, textarea, select, button { font: inherit; }
+    input, textarea, select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #475569;
+      border-radius: 9px;
+      background: #0f172a;
+      color: #f8fafc;
+    }
+    textarea { min-height: 95px; resize: vertical; }
+    button {
+      padding: 12px 14px;
+      border: 0;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 700;
+      background: #38bdf8;
+      color: #082f49;
+    }
+    button.secondary { background: #475569; color: #f8fafc; }
     button:disabled { cursor: not-allowed; opacity: .5; }
-    #status { margin-bottom: 0; font-size: .9rem; }
-    @media (max-width: 480px) { .dates { grid-template-columns: 1fr; } .actions { flex-direction: column; } }
+    .dates, .market {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin: 20px 0;
+    }
+    .levels {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin: 14px 0;
+    }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; }
+    .result {
+      min-height: 72px;
+      display: grid;
+      place-items: center;
+      margin: 16px 0;
+      padding: 16px;
+      border-radius: 12px;
+      background: #0f172a;
+      color: #38bdf8;
+      font-size: 1.4rem;
+      font-weight: 700;
+      text-align: center;
+    }
+    section {
+      border-top: 1px solid #475569;
+      margin-top: 25px;
+      padding-top: 12px;
+    }
+    #editor[hidden] { display: none; }
+    #entries { display: grid; gap: 8px; padding: 0; list-style: none; }
+    #entries button {
+      width: 100%;
+      text-align: left;
+      background: #0f172a;
+      color: #e2e8f0;
+      border: 1px solid #475569;
+    }
+    #entries button:hover { border-color: #38bdf8; }
+    #message { min-height: 1.4em; color: #86efac; font-size: .9rem; }
+    #import { display: none; }
+    @media (max-width: 520px) {
+      .dates, .market, .levels { grid-template-columns: 1fr; }
+      .actions button { width: 100%; }
+    }
   </style>
 </head>
 <body>
   <main>
-    <h1>Unique Random Workday</h1>
-    <p>Generates a Monday–Friday date. A date cannot repeat until you reset the pool.</p>
+    <h1>Workday Market Journal</h1>
+    <p>Pick each Monday–Friday date once per pool. Record where price sat relative to VWAP and the volume profile levels.</p>
+
     <div class="dates">
       <label>Start date <input id="start" type="date" value="2026-01-10"></label>
       <label>End date <input id="end" type="date"></label>
     </div>
+
     <div id="result" class="result" aria-live="polite">Press “Pick a date”</div>
     <div class="actions">
       <button id="pick">Pick a date</button>
-      <button id="reset">Reset dates</button>
+      <button id="reset" class="secondary">Reset dates</button>
     </div>
     <p id="status" aria-live="polite"></p>
+
+    <section id="editor" hidden>
+      <h2 id="editor-title">Date entry</h2>
+
+      <div class="market">
+        <label>Session
+          <select id="session">
+            <option value="">Select session</option>
+            <option>Asia</option>
+            <option>London</option>
+            <option>New York</option>
+            <option>Other</option>
+          </select>
+        </label>
+        <label>Price relative to VWAP
+          <select id="vwap-position">
+            <option value="">Select position</option>
+            <option>Above VWAP</option>
+            <option>At VWAP</option>
+            <option>Below VWAP</option>
+            <option>Crossed above VWAP</option>
+            <option>Crossed below VWAP</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="levels">
+        <label>VWAP value <input id="vwap" type="number" step="any" placeholder="Optional"></label>
+        <label>POC <input id="poc" type="number" step="any" placeholder="Point of control"></label>
+        <label>VAL <input id="val" type="number" step="any" placeholder="Value area low"></label>
+        <label>VAH <input id="vah" type="number" step="any" placeholder="Value area high"></label>
+        <label>Price at observation <input id="price" type="number" step="any" placeholder="Optional"></label>
+      </div>
+
+      <label>Notes <textarea id="notes" placeholder="Setup, entry, and outcome"></textarea></label>
+      <label>Observations <textarea id="observations" placeholder="What did VWAP and the profile reveal?"></textarea></label>
+      <p><button id="save">Save entry</button></p>
+    </section>
+
+    <section>
+      <h2>Saved dates</h2>
+      <ul id="entries"></ul>
+    </section>
+
+    <section>
+      <h2>JSON backup</h2>
+      <p>Download your entries as a JSON file to share here later. Import a previous backup to restore entries on this browser.</p>
+      <div class="actions">
+        <button id="export" class="secondary">Download JSON</button>
+        <button id="import-button" class="secondary">Import JSON</button>
+        <input id="import" type="file" accept="application/json,.json">
+      </div>
+    </section>
+
+    <p id="message" role="status" aria-live="polite"></p>
+    <p class="hint">Entries stay in this browser until exported. Keep your downloaded JSON file safe; clearing browser site data removes the local copy. Reset dates keeps your entries.</p>
   </main>
 
   <script>
-    const startInput = document.querySelector('#start');
-    const endInput = document.querySelector('#end');
-    const result = document.querySelector('#result');
-    const status = document.querySelector('#status');
-    const pickButton = document.querySelector('#pick');
-    let availableDates = [];
+    const $ = s => document.querySelector(s);
+    const fields = [
+      'session', 'vwap-position', 'vwap', 'poc', 'val',
+      'vah', 'price', 'notes', 'observations'
+    ];
+    const startInput = $('#start');
+    const endInput = $('#end');
+    const result = $('#result');
+    const status = $('#status');
+    const pickButton = $('#pick');
 
-    const toLocalISO = date => {
-      const y = date.getFullYear();
-      const m = String(date.getMonth() + 1).padStart(2, '0');
-      const d = String(date.getDate()).padStart(2, '0');
-      return `${y}-${m}-${d}`;
-    };
+    let db, used = [], available = [], selected = null;
 
-    endInput.value = toLocalISO(new Date());
+    const today = new Date();
+    endInput.value =
+      `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+    function dateFromISO(iso) {
+      const [y, m, d] = iso.split('-').map(Number);
+      return new Date(y, m - 1, d, 12);
+    }
+
+    function localISO(date) {
+      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    }
+
+    function validISO(s) {
+      return typeof s === 'string' &&
+        /^\d{4}-\d{2}-\d{2}$/.test(s) &&
+        !Number.isNaN(dateFromISO(s).getTime()) &&
+        localISO(dateFromISO(s)) === s;
+    }
+
+    function format(iso) {
+      return dateFromISO(iso).toLocaleDateString(undefined, {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+      });
+    }
+
+    function requestResult(req) {
+      return new Promise((resolve, reject) => {
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open('workday-journal', 1);
+        req.onupgradeneeded = () => {
+          const database = req.result;
+          database.createObjectStore('entries', { keyPath: 'date' });
+          database.createObjectStore('settings');
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => reject(req.error);
+      });
+    }
+
+    async function get(store, key) {
+      return requestResult(db.transaction(store).objectStore(store).get(key));
+    }
+
+    async function put(store, value, key) {
+      return requestResult(
+        db.transaction(store, 'readwrite').objectStore(store).put(value, key)
+      );
+    }
+
+    async function allEntries() {
+      return requestResult(
+        db.transaction('entries').objectStore('entries').getAll()
+      );
+    }
+
+    function message(s, error = false) {
+      $('#message').textContent = s;
+      $('#message').style.color = error ? '#fca5a5' : '#86efac';
+    }
+
+    function clean(entry) {
+      const out = { date: entry.date };
+      for (const field of fields) out[field] = String(entry[field] ?? '');
+      return out;
+    }
+
+    async function renderHistory() {
+      const records = await allEntries();
+      const list = $('#entries');
+      list.replaceChildren();
+      records.sort((a, b) => b.date.localeCompare(a.date));
+
+      if (!records.length) {
+        const item = document.createElement('li');
+        item.textContent = 'No dates picked yet.';
+        list.append(item);
+      }
+
+      for (const record of records) {
+        const item = document.createElement('li');
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent =
+          `${format(record.date)}${record.session ? ' · ' + record.session : ''}${record.poc ? ' · POC ' + record.poc : ''}`;
+        button.onclick = () => openEntry(record.date);
+        item.append(button);
+        list.append(item);
+      }
+    }
+
+    async function openEntry(iso) {
+      const record = await get('entries', iso);
+      selected = iso;
+      for (const field of fields) $('#' + field).value = record?.[field] ?? '';
+      $('#editor-title').textContent = format(iso);
+      $('#editor').hidden = false;
+      result.textContent = format(iso);
+    }
 
     function rebuildPool() {
-      const start = new Date(`${startInput.value}T12:00:00`);
-      const end = new Date(`${endInput.value}T12:00:00`);
-      availableDates = [];
+      available = [];
+      const a = startInput.value;
+      const b = endInput.value;
 
-      if (!startInput.value || !endInput.value || start > end) {
+      if (!validISO(a) || !validISO(b) || a > b) {
         result.textContent = 'Choose a valid date range';
         status.textContent = 'The start date must be on or before the end date.';
         pickButton.disabled = true;
         return;
       }
 
-      for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
-        const day = date.getDay();
-        if (day !== 0 && day !== 6) availableDates.push(new Date(date));
+      for (
+        let d = dateFromISO(a), end = dateFromISO(b);
+        d <= end;
+        d.setDate(d.getDate() + 1)
+      ) {
+        if (d.getDay() !== 0 && d.getDay() !== 6) {
+          const iso = localISO(d);
+          if (!used.includes(iso)) available.push(iso);
+        }
       }
 
-      result.textContent = 'Press “Pick a date”';
-      pickButton.disabled = availableDates.length === 0;
-      updateStatus();
+      pickButton.disabled = !available.length;
+      status.textContent =
+        `${available.length} unique workday${available.length === 1 ? '' : 's'} remaining.` +
+        (available.length ? '' : ' Reset dates to start again.');
+      if (!selected) result.textContent = 'Press “Pick a date”';
     }
 
-    function updateStatus() {
-      status.textContent = `${availableDates.length} unique workday${availableDates.length === 1 ? '' : 's'} remaining.`;
-    }
+    startInput.onchange = rebuildPool;
+    endInput.onchange = rebuildPool;
 
-    pickButton.addEventListener('click', () => {
-      if (!availableDates.length) return;
-      const index = Math.floor(Math.random() * availableDates.length);
-      const [chosen] = availableDates.splice(index, 1);
-      result.textContent = chosen.toLocaleDateString(undefined, {
-        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-      });
-      pickButton.disabled = availableDates.length === 0;
-      updateStatus();
-      if (!availableDates.length) status.textContent += ' Reset to start again.';
-    });
+    pickButton.onclick = async () => {
+      if (!available.length) return;
+      const iso = available[Math.floor(Math.random() * available.length)];
 
-    document.querySelector('#reset').addEventListener('click', rebuildPool);
-    startInput.addEventListener('change', rebuildPool);
-    endInput.addEventListener('change', rebuildPool);
-    rebuildPool();
+      try {
+        const existing = await get('entries', iso);
+        if (!existing) await put('entries', clean({ date: iso }));
+        used.push(iso);
+        await put('settings', used, 'used');
+        rebuildPool();
+        await openEntry(iso);
+        await renderHistory();
+        message('Date picked. Enter your levels and save.');
+      } catch (e) {
+        message(`Could not save date: ${e.message}`, true);
+      }
+    };
+
+    $('#reset').onclick = async () => {
+      try {
+        used = [];
+        await put('settings', used, 'used');
+        selected = null;
+        $('#editor').hidden = true;
+        result.textContent = 'Press “Pick a date”';
+        rebuildPool();
+        message('Date pool reset. Saved entries are still listed below.');
+      } catch (e) {
+        message(`Could not reset dates: ${e.message}`, true);
+      }
+    };
+
+    $('#save').onclick = async () => {
+      if (!selected) return;
+
+      try {
+        const prior = await get('entries', selected) || { date: selected };
+        const record = clean({
+          date: selected,
+          ...Object.fromEntries(fields.map(f => [f, $('#' + f).value]))
+        });
+        await put('entries', { ...prior, ...record });
+        await renderHistory();
+        message('Entry saved. Download JSON to keep a portable backup.');
+      } catch (e) {
+        message(`Could not save entry: ${e.message}`, true);
+      }
+    };
+
+    $('#export').onclick = async () => {
+      try {
+        const records = (await allEntries())
+          .map(clean)
+          .sort((a, b) => a.date.localeCompare(b.date));
+        const payload = {
+          schema: 'workday-market-journal',
+          version: 1,
+          exportedAt: new Date().toISOString(),
+          dateRange: { start: startInput.value, end: endInput.value },
+          usedDates: used,
+          entries: records
+        };
+
+        const blob = new Blob([JSON.stringify(payload, null, 2)], {
+          type: 'application/json'
+        });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `workday-market-journal-${localISO(new Date())}.json`;
+        document.body.append(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+        message(`Downloaded ${records.length} entries as JSON.`);
+      } catch (e) {
+        message(`Could not export JSON: ${e.message}`, true);
+      }
+    };
+
+    $('#import-button').onclick = () => $('#import').click();
+
+    $('#import').onchange = async () => {
+      const file = $('#import').files[0];
+      if (!file) return;
+
+      try {
+        const data = JSON.parse(await file.text());
+        if (
+          data.schema !== 'workday-market-journal' ||
+          data.version !== 1 ||
+          !Array.isArray(data.entries) ||
+          !Array.isArray(data.usedDates) ||
+          data.entries.length > 10000
+        ) {
+          throw new Error('This is not a supported journal backup.');
+        }
+
+        const dates = new Set();
+        for (const entry of data.entries) {
+          if (!entry || !validISO(entry.date) || dates.has(entry.date)) {
+            throw new Error('Backup contains invalid or duplicate dates.');
+          }
+          dates.add(entry.date);
+        }
+        if (!data.usedDates.every(validISO)) {
+          throw new Error('Backup contains invalid picked dates.');
+        }
+
+        for (const entry of data.entries) {
+          const prior = await get('entries', entry.date) || {};
+          await put('entries', { ...prior, ...clean(entry) });
+        }
+        used = [...new Set([...used, ...data.usedDates])];
+        await put('settings', used, 'used');
+        await renderHistory();
+        rebuildPool();
+        message(`Imported ${data.entries.length} entries. Matching dates were updated.`);
+      } catch (e) {
+        message(`Import failed: ${e.message}`, true);
+      } finally {
+        $('#import').value = '';
+      }
+    };
+
+    (async () => {
+      try {
+        db = await openDB();
+        used = await get('settings', 'used') || [];
+        rebuildPool();
+        await renderHistory();
+      } catch (e) {
+        pickButton.disabled = true;
+        $('#reset').disabled = true;
+        $('#save').disabled = true;
+        message(`Browser storage is unavailable: ${e.message}`, true);
+      }
+    })();
   </script>
 </body>
 </html>

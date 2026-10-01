@@ -1,0 +1,562 @@
+{
+  "version": 1,
+  "symbol": "",
+  "price": "",
+  "radius": 25,
+  "direction": "up",
+  "sessionMinutes": "",
+  "filter": "near",
+  "note": "",
+  "items": [
+    {
+      "id": "Technicals0",
+      "group": "Technicals",
+      "name": "RSI",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Technicals1",
+      "group": "Technicals",
+      "name": "MACD",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Technicals2",
+      "group": "Technicals",
+      "name": "ORB 15 min",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Technicals3",
+      "group": "Technicals",
+      "name": "5M 10M 15M",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Technicals4",
+      "group": "Technicals",
+      "name": "9 EMA",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Technicals5",
+      "group": "Technicals",
+      "name": "20 EMA",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Technicals6",
+      "group": "Technicals",
+      "name": "VWAP",
+      "value": "",
+      "selected": true,
+      "signal": "unset",
+      "wins": 1,
+      "losses": 0
+    },
+    {
+      "id": "Technicals7",
+      "group": "Technicals",
+      "name": "CBC",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Technicals8",
+      "group": "Technicals",
+      "name": "200 EMA",
+      "value": "",
+      "selected": true,
+      "signal": "stop",
+      "wins": 0,
+      "losses": 1
+    },
+    {
+      "id": "Session & key levels0",
+      "group": "Session & key levels",
+      "name": "NH",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Session & key levels1",
+      "group": "Session & key levels",
+      "name": "NL",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Session & key levels2",
+      "group": "Session & key levels",
+      "name": "AH",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Session & key levels3",
+      "group": "Session & key levels",
+      "name": "AL",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Session & key levels4",
+      "group": "Session & key levels",
+      "name": "LL",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Session & key levels5",
+      "group": "Session & key levels",
+      "name": "LH",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Session & key levels6",
+      "group": "Session & key levels",
+      "name": "PNH",
+      "value": "",
+      "selected": true,
+      "signal": "green",
+      "wins": 1,
+      "losses": 0
+    },
+    {
+      "id": "Session & key levels7",
+      "group": "Session & key levels",
+      "name": "PNL",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Session & key levels8",
+      "group": "Session & key levels",
+      "name": "PAH",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Session & key levels9",
+      "group": "Session & key levels",
+      "name": "PAL",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Session & key levels10",
+      "group": "Session & key levels",
+      "name": "PLL",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Session & key levels11",
+      "group": "Session & key levels",
+      "name": "PLA",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Session & key levels12",
+      "group": "Session & key levels",
+      "name": "MH",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Session & key levels13",
+      "group": "Session & key levels",
+      "name": "ML",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Session & key levels14",
+      "group": "Session & key levels",
+      "name": "PMA",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Session & key levels15",
+      "group": "Session & key levels",
+      "name": "PML",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Session & key levels16",
+      "group": "Session & key levels",
+      "name": "CDA",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Session & key levels17",
+      "group": "Session & key levels",
+      "name": "CDL",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Session & key levels18",
+      "group": "Session & key levels",
+      "name": "PDA",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Session & key levels19",
+      "group": "Session & key levels",
+      "name": "PDL",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Session & key levels20",
+      "group": "Session & key levels",
+      "name": "WH",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Session & key levels21",
+      "group": "Session & key levels",
+      "name": "WL",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Levels & numbers0",
+      "group": "Levels & numbers",
+      "name": "50 POINTS",
+      "value": "",
+      "selected": true,
+      "signal": "green",
+      "wins": 1,
+      "losses": 0
+    },
+    {
+      "id": "Levels & numbers1",
+      "group": "Levels & numbers",
+      "name": "100 POINTS",
+      "value": "",
+      "selected": true,
+      "signal": "green",
+      "wins": 1,
+      "losses": 0
+    },
+    {
+      "id": "Levels & numbers2",
+      "group": "Levels & numbers",
+      "name": "0.23",
+      "value": "",
+      "selected": true,
+      "signal": "green",
+      "wins": 2,
+      "losses": 0
+    },
+    {
+      "id": "Levels & numbers3",
+      "group": "Levels & numbers",
+      "name": "0.5",
+      "value": "",
+      "selected": true,
+      "signal": "green",
+      "wins": 1,
+      "losses": 0
+    },
+    {
+      "id": "Levels & numbers4",
+      "group": "Levels & numbers",
+      "name": "ADR LEVELS",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 1,
+      "losses": 0
+    },
+    {
+      "id": "Levels & numbers5",
+      "group": "Levels & numbers",
+      "name": "IBHIGH",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Levels & numbers6",
+      "group": "Levels & numbers",
+      "name": "IBLOW",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Levels & numbers7",
+      "group": "Levels & numbers",
+      "name": "IB MID",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Levels & numbers8",
+      "group": "Levels & numbers",
+      "name": "IB 25% +",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Levels & numbers9",
+      "group": "Levels & numbers",
+      "name": "IB 25% −",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Volume profile0",
+      "group": "Volume profile",
+      "name": "VAH",
+      "value": "",
+      "selected": true,
+      "signal": "green",
+      "wins": 1,
+      "losses": 0
+    },
+    {
+      "id": "Volume profile1",
+      "group": "Volume profile",
+      "name": "VAL",
+      "value": "",
+      "selected": true,
+      "signal": "green",
+      "wins": 1,
+      "losses": 0
+    },
+    {
+      "id": "Volume profile2",
+      "group": "Volume profile",
+      "name": "POC",
+      "value": "",
+      "selected": true,
+      "signal": "green",
+      "wins": 1,
+      "losses": 0
+    },
+    {
+      "id": "Volume profile3",
+      "group": "Volume profile",
+      "name": "Current session VAH",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Volume profile4",
+      "group": "Volume profile",
+      "name": "Current session VAL",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Volume profile5",
+      "group": "Volume profile",
+      "name": "Current session POC",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Fair value0",
+      "group": "Fair value",
+      "name": "FVG",
+      "value": "",
+      "selected": true,
+      "signal": "green",
+      "wins": 1,
+      "losses": 0
+    },
+    {
+      "id": "Fair value1",
+      "group": "Fair value",
+      "name": "IFVG",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Volume delta0",
+      "group": "Volume delta",
+      "name": "CVD",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "Volume delta1",
+      "group": "Volume delta",
+      "name": "VOLUME DELTA",
+      "value": "",
+      "selected": false,
+      "signal": "unset",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "17908169568670.041610298768982146",
+      "name": "8 pm",
+      "group": "Session & key levels",
+      "value": "",
+      "selected": false,
+      "signal": "caution",
+      "wins": 1,
+      "losses": 0
+    },
+    {
+      "id": "17908169669630.8327265746879092",
+      "name": "9pm",
+      "group": "Session & key levels",
+      "value": "",
+      "selected": false,
+      "signal": "caution",
+      "wins": 1,
+      "losses": 0
+    },
+    {
+      "id": "17908173016830.338230336485004",
+      "name": "sudden volume high",
+      "group": "Volume delta",
+      "value": "",
+      "selected": false,
+      "signal": "stop",
+      "wins": 0,
+      "losses": 0
+    },
+    {
+      "id": "17908173102640.36638393366936495",
+      "name": "sudden volume down",
+      "group": "Volume delta",
+      "value": "",
+      "selected": false,
+      "signal": "stop",
+      "wins": 0,
+      "losses": 0
+    }
+  ]
+}
